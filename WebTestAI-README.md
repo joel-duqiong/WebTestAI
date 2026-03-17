@@ -45,22 +45,26 @@ WebTestAI 是一个智能化的 Web 应用测试平台，结合了：
 
 ```
 webtestai/
-├── hybrid-test-arch/          # 混合测试架构 v1
-│   ├── core/                  # 核心模块
-│   │   ├── crawler.js         # 页面爬取器
-│   │   ├── analyzer.js        # 测试分析器
-│   │   ├── llm-integration.js # LLM API 集成
-│   │   └── ...
-│   ├── prompts/               # AI 提示词模板
-│   ├── skills/                # OpenClaw 技能
-│   └── examples/              # 示例脚本
+├── src/                       # 源代码
+│   ├── hybrid-test-arch/      # 混合测试架构 v1
+│   │   ├── core/              # 核心模块
+│   │   │   ├── crawler.js     # 页面爬取器
+│   │   │   ├── analyzer.js    # 测试分析器
+│   │   │   ├── llm-integration.js # LLM API 集成
+│   │   │   └── ...
+│   │   ├── prompts/           # AI 提示词模板 (7 个 Agent)
+│   │   ├── skills/            # OpenClaw 技能
+│   │   └── examples/          # 示例脚本
+│   │
+│   └── hybrid-test-arch-v3/   # 混合测试架构 v3 (最新版)
+│       ├── core/              # 核心模块 (7 个)
+│       ├── skills/            # OpenClaw 技能
+│       └── examples/          # 示例脚本
 │
-├── hybrid-test-arch-v3/       # 混合测试架构 v3 (最新版)
-│   ├── core/
-│   ├── prompts/
-│   └── examples/
+├── scripts/                   # 测试脚本
+│   ├── full-stack-test*.js    # 全栈测试脚本 (8 个版本)
+│   └── test-runner.js         # 测试运行器
 │
-├── full-stack-test*.js        # 全栈测试脚本 (多个版本)
 ├── package.json               # 依赖配置
 └── README.md                  # 项目说明
 ```
