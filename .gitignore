@@ -1,0 +1,57 @@
+# WebTestAI - Git Ignore
+
+## Dependencies
+node_modules/
+package-lock.json
+
+## Test Output (exclude all test results)
+output/test-*/
+output/*.html
+output/*.pdf
+output/reports/
+
+## But allow test-session code
+!output/test-session/hybrid-test-arch/core/
+!output/test-session/hybrid-test-arch/prompts/
+!output/test-session/hybrid-test-arch/skills/
+!output/test-session/hybrid-test-arch/examples/
+!output/test-session/hybrid-test-arch/README.md
+!output/test-session/hybrid-test-arch-v3/core/
+!output/test-session/hybrid-test-arch-v3/prompts/
+!output/test-session/hybrid-test-arch-v3/examples/
+!output/test-session/hybrid-test-arch-v3/skills/
+
+## Session Memory
+memory/
+input/
+
+## OpenClaw State
+.openclaw/
+
+## Environment Variables
+.env
+.env.local
+*.local.json
+
+## IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+## OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## Temporary Files
+tmp/
+temp/
+*.tmp
+
+## Screenshots (optional - uncomment if needed)
+# screenshots/
+# *.png
+
+## PDF Reports (optional - uncomment if needed)
+# *.pdf

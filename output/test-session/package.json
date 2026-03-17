@@ -1,0 +1,16 @@
+{
+  "name": "test-session",
+  "version": "1.0.0",
+  "description": "**目标地址:** http://192.168.1.2:3002 **测试时间:** 2026-03-17 20:13 **测试工具:** OpenClaw + Playwright + OpenTestAI 提示词",
+  "main": "test-runner.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "playwright": "^1.58.2"
+  }
+}
