@@ -4,22 +4,8 @@
 node_modules/
 package-lock.json
 
-## Test Output (exclude all test results)
-output/test-*/
-output/*.html
-output/*.pdf
-output/reports/
-
-## But allow test-session code
-!output/test-session/hybrid-test-arch/core/
-!output/test-session/hybrid-test-arch/prompts/
-!output/test-session/hybrid-test-arch/skills/
-!output/test-session/hybrid-test-arch/examples/
-!output/test-session/hybrid-test-arch/README.md
-!output/test-session/hybrid-test-arch-v3/core/
-!output/test-session/hybrid-test-arch-v3/prompts/
-!output/test-session/hybrid-test-arch-v3/examples/
-!output/test-session/hybrid-test-arch-v3/skills/
+## Test Output
+output/
 
 ## Session Memory
 memory/
