@@ -10,6 +10,8 @@ const ResultDeduplicator = require('../deduplication');
 const PDFExporter = require('../pdf-exporter');
 const LLMIntegration = require('../llm-integration');
 const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
 
 /**
  * 创建测试会话（仅爬取）
@@ -247,7 +249,7 @@ async function createSession(options = {}) {
 
                 // 生成 HTML 报告
                 if (format.includes('html')) {
-                    const HTMLReporter = require('../core/html-reporter');
+                    const HTMLReporter = require('../html-reporter');
                     const reporter = new HTMLReporter();
                     reportPaths.html = await reporter.generate(results, outputDir);
                 }
