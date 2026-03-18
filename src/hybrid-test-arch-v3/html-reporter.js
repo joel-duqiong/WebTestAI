@@ -324,13 +324,13 @@ class HTMLReporter {
                                 ` : '-'}
                             </td>
                             <td>
-                                <button class="details-btn" onclick="document.getElementById('details-${index}').style.display = document.getElementById('details-${index}').style.display === 'none' ? 'table-row' : 'none'">
-                                    ${page.tests && page.tests.length > 0 ? '查看详情' : '无'}
+                                <button class="details-btn" onclick="document.getElementById('details-${index}').style.display = document.getElementById('details-${index}').style.display === 'none' ? 'table-row' : 'none'; this.textContent = this.textContent === '查看详情' ? '收起' : '查看详情'">
+                                    ${page.tests && page.tests.length > 0 ? (index === 0 ? '收起' : '查看详情') : '无'}
                                 </button>
                             </td>
                         </tr>
                         ${page.tests && page.tests.length > 0 ? `
-                            <tr id="details-${index}" class="details-row" style="display: none;">
+                            <tr id="details-${index}" class="details-row" style="display: ${index === 0 ? 'table-row' : 'none'};">
                                 <td colspan="6">
                                     <div class="details-content">
                                         <div style="margin-bottom: 16px; color: var(--muted); font-size: 13px;">
