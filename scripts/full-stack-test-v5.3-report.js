@@ -13,12 +13,12 @@ const BASE_URL = process.argv[3] || 'https://chagee.com/zh-cn';
 const MAX_PAGES = parseInt(process.argv[4]) || 50; // 默认 50 页
 const MAX_DEPTH = parseInt(process.argv[5]) || 3; // 爬取深度
 
-// 参与测试的 Agent 角色
+// 参与测试的 Agent 角色（使用 OpenTestAI Agents）
 const TEST_AGENTS = [
-    { id: 'crawler', name: '爬虫 Agent', emoji: '🕷️', role: '页面发现与链接收集' },
-    { id: 'visual', name: '视觉 Agent', emoji: '👁️', role: '页面截图与 UI 检查' },
-    { id: 'security', name: '安全 Agent', emoji: '🔒', role: 'HTTPS 与表单安全检查' },
-    { id: 'content', name: '内容 Agent', emoji: '📝', role: '页面内容与 SEO 检查' }
+    { id: 'mia', name: 'Mia', emoji: '👁️', role: 'UI/UX 与表单专家' },
+    { id: 'sophia', name: 'Sophia', emoji: '♿', role: '无障碍访问专家' },
+    { id: 'tariq', name: 'Tariq', emoji: '🔒', role: '安全与 OWASP 专家' },
+    { id: 'leila', name: 'Leila', emoji: '📝', role: '内容质量专家' }
 ];
 
 async function runTest() {
@@ -83,9 +83,13 @@ async function runTest() {
             '/zh-cn/media-centre/brand'
         ];
         
-        const baseUrl = BASE_URL.replace(/\/zh-cn.*$/, '');
+        // 修复 URL：避免重复 /zh-cn
+        const baseUrl = BASE_URL.replace(/\/zh-cn.*$/, '').replace(/\/$/, '');
         const uniqueUrls = predefinedUrls
-            .map(p => baseUrl + p)
+            .map(p => {
+                const path = p.replace(/^\/zh-cn/, ''); // 移除开头的 /zh-cn
+                return `${baseUrl}/zh-cn${path}`;
+            })
             .slice(0, maxPages);
         
         console.log(`📊 准备测试 ${uniqueUrls.length} 个页面...\n`);
