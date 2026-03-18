@@ -299,6 +299,7 @@ class PageClassifier {
      * @param {Object} page - 页面数据
      * @returns {boolean}
      */
+    isHomepage(page) {
         const url = page.url || '';
         const path = new URL(url).pathname;
         return path === '/' || path === '' || path === '/index.html' || path === '/index.htm' ||
