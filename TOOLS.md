@@ -96,6 +96,18 @@ AUTOMATION_TOKEN: your_apify_token_here
 
 ---
 
+## ⚠️ 技能安装规则
+
+**所有技能只安装到本地工作区：** `F:\teams\testzai\skills`
+
+```bash
+clawhub install <skill-name> --dir "F:\teams\testzai\skills"
+```
+
+不要使用默认路径（会装到全局 `C:\Users\joel_\.openclaw\workspace\skills\`）。
+
+---
+
 ## ☁️ AgentBay 云桌面配置
 
 **Access Key:** `your_agentbay_access_key_here`

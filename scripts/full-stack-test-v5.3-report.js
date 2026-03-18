@@ -170,10 +170,12 @@ async function runTest() {
                         bug_type: ['Functional', pageInfo.errorType],
                         bug_priority: 8,
                         bug_confidence: 10,
+                        bug_reasoning_why_a_bug: `页面返回 HTTP ${httpStatus} 错误，用户无法正常访问。${pageInfo.errorType === '方法不允许' ? '服务器拒绝了当前 HTTP 方法（可能是 GET 请求被阻止）。' : '页面不存在或服务器错误。'}`,
                         reproduction_steps: `1. 访问 ${url}\n2. 等待页面加载`,
                         expected_result: '页面正常加载 (HTTP 200)',
                         actual_result: `HTTP ${httpStatus} - ${pageTitle}`,
-                        suggested_fix: '网站可能有反爬虫机制，需要调整访问策略'
+                        suggested_fix: '网站可能有反爬虫机制，需要调整访问策略。建议：1) 添加真实的 User-Agent 2) 降低请求频率 3) 使用浏览器指纹 4) 检查是否需要特定的 HTTP 方法或请求头',
+                        ai_prompt: `修复 HTTP ${httpStatus} 错误：检查服务器配置，确保 ${url} 允许 GET 请求。如果是反爬虫机制，添加请求头模拟真实浏览器：{ 'User-Agent': 'Mozilla/5.0...', 'Accept': 'text/html' }`
                     });
                     
                     results.allPages.push(pageInfo);
@@ -228,10 +230,12 @@ async function runTest() {
                     bug_type: ['Functional', pageInfo.errorType],
                     bug_priority: 7,
                     bug_confidence: 10,
+                    bug_reasoning_why_a_bug: `页面加载失败：${error.message}。用户无法访问该页面，影响用户体验和功能可用性。`,
                     reproduction_steps: `1. 访问 ${url}\n2. 等待页面加载`,
                     expected_result: '页面正常加载 (HTTP 200)',
                     actual_result: error.message,
-                    suggested_fix: '检查网络连接和服务器状态'
+                    suggested_fix: `检查网络连接和服务器状态。具体步骤：1) 确认服务器运行正常 2) 检查防火墙设置 3) 验证 DNS 解析 4) 如果是超时问题，增加超时时间或优化页面加载性能`,
+                    ai_prompt: `修复页面加载错误：${error.message}。检查网络连接，确认服务器地址 ${url} 可访问。如果是超时，优化页面资源加载或增加 timeout 参数。`
                 });
             }
             
