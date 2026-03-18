@@ -84,6 +84,7 @@ class HTMLReporter {
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>混合测试报告 v3.1 - ${results.baseUrl}</title>
     <style>
@@ -348,7 +349,7 @@ class HTMLReporter {
                                         </div>
                                         ${page.screenshot ? `
                                             <div class="screenshot-container">
-                                                <img src="data:image/png;base64,${page.screenshot}" alt="Screenshot">
+                                                <img src="data:image/png;base64,${page.screenshot}" alt="Screenshot" style="max-width: 100%; height: auto;">
                                                 <div class="screenshot-caption">📸 页面截图 - ${this.escapeHtml(page.title || '无标题')}</div>
                                             </div>
                                         ` : ''}

@@ -195,7 +195,8 @@ async function createSession(options = {}) {
                         consoleLogs: page.consoleLogs,
                         links: page.links,
                         screenshot: page.screenshot ? page.screenshot.toString('base64') : null,
-                        html: page.html,
+                        // 不保存完整 HTML（太大且会破坏报告），只保存文本内容
+                        content: page.content ? page.content.substring(0, 5000) : null,
                         matchedAgents: page.matchedAgents,
                         tests: page.tests,
                         testsPassed: page.testsPassed,
@@ -267,7 +268,10 @@ async function createSession(options = {}) {
                         totalIssues: dedupedIssues.length,
                         totalAgents: allAgents.length
                     },
-                    pages: session.pages,
+                    pages: session.pages.map(p => ({
+                        ...p,
+                        html: undefined  // 移除完整 HTML，避免破坏报告
+                    })),
                     issues: dedupedIssues,
                     agents: allAgents,
                     issueStats
