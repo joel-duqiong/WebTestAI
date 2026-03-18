@@ -3,12 +3,12 @@
  * 核心改进：爬取与分析完全分离
  */
 
-const PageCrawler = require('../core/crawler');
-const PageAnalyzer = require('../core/analyzer');
-const DataStorage = require('../core/storage');
-const ResultDeduplicator = require('../core/deduplication');
-const PDFExporter = require('../core/pdf-exporter');
-const LLMIntegration = require('../core/llm-integration');
+const PageCrawler = require('../crawler');
+const PageAnalyzer = require('../analyzer');
+const DataStorage = require('../storage');
+const ResultDeduplicator = require('../deduplication');
+const PDFExporter = require('../pdf-exporter');
+const LLMIntegration = require('../llm-integration');
 const crypto = require('crypto');
 
 /**
