@@ -211,6 +211,7 @@ async function runTest() {
 
                 // === 新增：提取 DOM 特征 → 动态 Agent 匹配 → 专项测试 ===
                 let matchedAgentNames = [];
+                let matchedAgentIds = [];
                 try {
                     // 提取 DOM 特征（复用 crawler 的 analyzeFeatures 逻辑）
                     const features = await page.evaluate(() => {
@@ -259,8 +260,9 @@ async function runTest() {
 
                     // 动态匹配 Agent
                     const matchedAgents = classifier.classify(pageData);
-                    matchedAgentNames = matchedAgents.map(a => a.name);
-                    pageInfo.matchedAgents = matchedAgentNames;
+                    matchedAgentIds = matchedAgents.map(a => a.id);  // 存 id 用于报告
+                    matchedAgentNames = matchedAgents.map(a => a.name);  // 用于日志显示
+                    pageInfo.matchedAgents = matchedAgentIds;  // 报告里用 id 匹配 agentDescriptions
 
                     // 记录匹配到的 Agent（全局收集）
                     for (const agent of matchedAgents) {
