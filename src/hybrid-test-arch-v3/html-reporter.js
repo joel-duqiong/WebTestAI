@@ -335,12 +335,14 @@ class HTMLReporter {
                                         <div style="margin-bottom: 16px; color: var(--muted); font-size: 13px;">
                                             <strong>匹配 Agent:</strong> ${(page.matchedAgents || []).map(id => this.getAgentInfo(id).name).join(', ')}
                                         </div>
-                                        <div class="test-list" style="display: flex; flex-direction: column; gap: 8px;">
+                                        <div class="test-list">
                                             ${page.tests.map(test => `
-                                                <div class="test-item ${test.passed ? 'passed' : 'failed'}" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 12px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; border-left: 3px solid ${test.passed ? 'var(--success)' : 'var(--error)'}; align-items: center;">
-                                                    <div style="font-weight: 500; font-size: 13px;">${this.escapeHtml(test.name)}</div>
-                                                    <div style="color: var(--muted); font-size: 13px; text-align: center;">: ${this.escapeHtml(test.check)}</div>
-                                                    <div style="text-align: right; font-weight: 600; font-size: 13px; color: ${test.passed ? 'var(--success)' : 'var(--error)'};">
+                                                <div class="test-item ${test.passed ? 'passed' : 'failed'}" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; margin: 6px 0; background: ${test.passed ? 'rgba(63,185,80,0.08)' : 'rgba(248,81,73,0.08)'}; border: 1px solid ${test.passed ? 'rgba(63,185,80,0.3)' : 'rgba(248,81,73,0.3)'}; border-radius: 6px;">
+                                                    <div style="flex: 1;">
+                                                        <div style="font-weight: 500; font-size: 13px; margin-bottom: 2px;">${this.escapeHtml(test.name)}</div>
+                                                        <div style="color: var(--muted); font-size: 12px;">: ${this.escapeHtml(test.check)}</div>
+                                                    </div>
+                                                    <div style="font-weight: 600; font-size: 13px; color: ${test.passed ? 'var(--success)' : 'var(--error)'}; white-space: nowrap; margin-left: 16px;">
                                                         ${test.passed ? '✅' : '❌'} ${this.escapeHtml(test.actual)}
                                                     </div>
                                                 </div>
@@ -362,39 +364,7 @@ class HTMLReporter {
         </div>
 
         <!-- Issues (if any) -->
-        ${results.issues && results.issues.length > 0 ? `
-            <div class="section">
-                <h2>⚠️ 发现的问题</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>问题</th>
-                            <th>类型</th>
-                            <th>优先级</th>
-                            <th>置信度</th>
-                            <th>来源 Agent</th>
-                            <th>建议修复</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${results.issues.map(issue => `
-                            <tr>
-                                <td>${this.escapeHtml(issue.bug_title || '-')}</td>
-                                <td>${(issue.bug_type || []).join(', ')}</td>
-                                <td>
-                                    <span class="status ${issue.bug_priority >= 8 ? 'failed' : issue.bug_priority >= 4 ? 'warning' : 'success'}">
-                                        P${issue.bug_priority || '-'}
-                                    </span>
-                                </td>
-                                <td>${issue.bug_confidence || '-'}/10</td>
-                                <td>${this.getAgentInfo(issue.agent || 'unknown').name}</td>
-                                <td>${this.escapeHtml(issue.suggested_fix || '-')}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        ` : ''}
+        ${this.renderIssuesSection(results)}
 
         <!-- Footer -->
         <div class="footer">
@@ -544,6 +514,101 @@ class HTMLReporter {
                     <div class="label">🟢 轻微 (P1-3)</div>
                     <div class="value">${low}</div>
                 </div>
+            </div>
+        `;
+    }
+
+    /**
+     * 渲染"发现的问题"区域
+     * 包括 LLM 分析的问题和失败的测试用例
+     */
+    renderIssuesSection(results) {
+        const hasLLMIssues = results.issues && results.issues.length > 0;
+        
+        // 收集失败的测试用例
+        const failedTests = [];
+        for (const page of results.pages || []) {
+            if (page.tests) {
+                for (const test of page.tests) {
+                    if (!test.passed) {
+                        failedTests.push({
+                            page: page.url,
+                            test: test
+                        });
+                    }
+                }
+            }
+        }
+        
+        const hasFailedTests = failedTests.length > 0;
+        
+        if (!hasLLMIssues && !hasFailedTests) return '';
+        
+        return `
+            <div class="section">
+                <h2>⚠️ 发现的问题</h2>
+                ${hasLLMIssues ? `
+                    <div style="margin-bottom: 24px;">
+                        <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--accent);">🤖 LLM 分析发现的问题</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>问题</th>
+                                    <th>类型</th>
+                                    <th>优先级</th>
+                                    <th>置信度</th>
+                                    <th>来源 Agent</th>
+                                    <th>建议修复</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${results.issues.map(issue => `
+                                    <tr>
+                                        <td>${this.escapeHtml(issue.bug_title || '-')}</td>
+                                        <td>${(issue.bug_type || []).join(', ')}</td>
+                                        <td>
+                                            <span class="status ${issue.bug_priority >= 8 ? 'failed' : issue.bug_priority >= 4 ? 'warning' : 'success'}">
+                                                P${issue.bug_priority || '-'}
+                                            </span>
+                                        </td>
+                                        <td>${issue.bug_confidence || '-'}/10</td>
+                                        <td>${this.getAgentInfo(issue.agent || 'unknown').name}</td>
+                                        <td>${this.escapeHtml(issue.suggested_fix || '-')}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : ''}
+                ${hasFailedTests ? `
+                    <div>
+                        <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--accent);">📋 失败的测试用例 (${failedTests.length}个)</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>页面</th>
+                                    <th>测试名称</th>
+                                    <th>检查项</th>
+                                    <th>实际结果</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${failedTests.map(item => `
+                                    <tr>
+                                        <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">
+                                            <a href="${this.escapeHtml(item.page)}" target="_blank" style="color: var(--accent); text-decoration: none;">
+                                                ${this.escapeHtml(item.page.length > 50 ? item.page.substring(0, 50) + '...' : item.page)}
+                                            </a>
+                                        </td>
+                                        <td>${this.escapeHtml(item.test.name)}</td>
+                                        <td style="color: var(--muted);">${this.escapeHtml(item.test.check)}</td>
+                                        <td style="color: var(--error); font-weight: 600;">❌ ${this.escapeHtml(item.test.actual)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : ''}
             </div>
         `;
     }
