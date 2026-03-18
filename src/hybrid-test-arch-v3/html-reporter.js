@@ -414,7 +414,8 @@ class HTMLReporter {
 </body>
 </html>`;
 
-        fs.writeFileSync(reportPath, html, 'utf8');
+        // 使用 Buffer 确保 UTF-8 编码正确（含 emoji）
+        fs.writeFileSync(reportPath, Buffer.from(html, 'utf8'));
         console.log(`📄 HTML 报告已生成：${reportPath}`);
         
         // 尝试自动打开
