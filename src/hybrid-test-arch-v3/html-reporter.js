@@ -254,7 +254,7 @@ class HTMLReporter {
         </div>
 
         <!-- Priority Stats -->
-        ${this.renderPriorityStats(results.issueStats)}
+        ${this.renderPriorityStats(results.issueStats, results.pages)}
 
         <!-- Agent Roles -->
         <div class="section">
@@ -508,13 +508,27 @@ class HTMLReporter {
 
     /**
      * 渲染优先级统计
+     * 从 LLM 分析和失败的测试用例中统计问题
      */
-    renderPriorityStats(stats) {
-        if (!stats) return '';
+    renderPriorityStats(stats, pages = []) {
+        let critical = stats?.critical || 0;
+        let medium = stats?.medium || 0;
+        let low = stats?.low || 0;
         
-        const critical = stats.critical || 0;
-        const medium = stats.medium || 0;
-        const low = stats.low || 0;
+        // 统计失败的测试用例（没有 LLM 分析时）
+        if (pages && pages.length > 0) {
+            let failedTests = 0;
+            for (const page of pages) {
+                if (page.tests) {
+                    const failed = page.tests.filter(t => !t.passed).length;
+                    failedTests += failed;
+                }
+            }
+            // 将失败的测试视为"中等"优先级问题
+            if (failedTests > 0 && critical === 0 && medium === 0 && low === 0) {
+                medium = failedTests;
+            }
+        }
         
         return `
             <div class="priority-grid">
