@@ -13,42 +13,40 @@ class HTMLReporter {
         this.agentDescriptions = {
             // 页面类型 Agent
             'homepage': { name: '首页测试员', specialty: '首页体验优化', icon: '🏠' },
-            'about-pages': { name: '关于页面测试员', specialty: '关于/团队页面', icon: 'ℹ️' },
+            'about-pages': { name: '关于页面测试员', specialty: '关于/团队页面', icon: '📖' },
             'contact-pages': { name: '联系页面测试员', specialty: '联系/支持页面', icon: '📞' },
             'pricing-pages': { name: '定价页面测试员', specialty: '价格/订阅页面', icon: '💰' },
             'landing-pages': { name: '落地页测试员', specialty: '营销/活动页面', icon: '🎯' },
-            'product-catalog': { name: '产品目录测试员', specialty: '商品列表/分类', icon: '📦' },
-            'product-details': { name: '产品详情测试员', specialty: '单品页面', icon: '🔍' },
-            'shopping-cart': { name: '购物车测试员', specialty: '购物车流程', icon: '🛍️' },
+            'product-catalog': { name: '产品目录测试员', specialty: '产品列表/分类', icon: '📦' },
+            'product-details': { name: '产品详情测试员', specialty: '产品详情页', icon: '🏷️' },
+            'shopping-cart': { name: '购物车测试员', specialty: '购物车功能', icon: '🛒' },
             'checkout': { name: '结账流程测试员', specialty: '支付/结算', icon: '💳' },
-            'signup': { name: '注册流程测试员', specialty: '登录/注册', icon: '📝' },
+            'signup': { name: '注册流程测试员', specialty: '登录/注册', icon: '👤' },
             'search-box': { name: '搜索框测试员', specialty: '搜索功能', icon: '🔎' },
             'search-results': { name: '搜索结果测试员', specialty: '搜索结果页', icon: '📋' },
             'news': { name: '新闻页面测试员', specialty: '新闻/博客', icon: '📰' },
             'video': { name: '视频测试员', specialty: '视频播放', icon: '🎬' },
             'social-feed': { name: '社交动态测试员', specialty: '信息流', icon: '📱' },
-            'social-profiles': { name: '社交资料测试员', specialty: '用户资料', icon: '👤' },
+            'social-profiles': { name: '社交资料测试员', specialty: '用户资料', icon: '👥' },
             'ai-chatbots': { name: 'AI 聊天机器人测试员', specialty: '聊天组件', icon: '🤖' },
             'javascript-booking-flows': { name: '预订流程测试员', specialty: '预约/预订', icon: '📅' },
-            'error-messages-careers-pages': { name: '错误/招聘页测试员', specialty: '错误页/招聘', icon: '⚠️' },
+            'error-messages-careers-pages': { name: '错误/招聘页面测试员', specialty: '错误页/招聘', icon: '⚠️' },
             'genai-code': { name: '生成式 AI 代码测试员', specialty: 'AI 代码生成', icon: '💻' },
             
-            // 通用 Agent（带原 OpenTestAI 人名）
+            // 通用 Agent（原 OpenTestAI 角色）
             'ui-ux-forms': { name: 'Mia · UI/UX 表单', specialty: '界面与表单体验', icon: '👁️' },
             'accessibility': { name: 'Sophia · 无障碍', specialty: 'WCAG 合规', icon: '♿' },
             'security-owasp': { name: 'Tariq · 安全', specialty: 'OWASP Top 10', icon: '🔒' },
             'content': { name: 'Leila · 内容', specialty: '内容质量', icon: '📝' },
             'performance-core-web-vitals': { name: 'Viktor · 性能', specialty: 'Core Web Vitals', icon: '⚡' },
             'mobile': { name: 'Zanele · 移动端', specialty: '响应式/触摸', icon: '📱' },
-            'console-logs': { name: '控制台日志测试员', specialty: 'JS 错误监控', icon: '🔧' },
+            'console-logs': { name: '控制台日志测试员', specialty: 'JS 错误检测', icon: '🖥️' },
             'privacy-cookie-consent': { name: '隐私/Cookie 测试员', specialty: 'Cookie 合规', icon: '🍪' },
-            'gdpr-compliance': { name: 'GDPR 合规测试员', specialty: '数据保护', icon: '⚖️' },
-            'wcag-compliance': { name: 'WCAG 合规测试员', specialty: '无障碍标准', icon: '✅' },
+            'gdpr-compliance': { name: 'GDPR 合规测试员', specialty: '欧盟数据保护', icon: '🇪🇺' },
+            'wcag-compliance': { name: 'WCAG 合规测试员', specialty: '无障碍标准', icon: '♿' },
             'i18n-localization': { name: '国际化测试员', specialty: '多语言支持', icon: '🌐' },
-            'networking-connectivity': { name: '网络连接测试员', specialty: 'API/网络', icon: '🔌' },
-            'system-errors': { name: '系统错误测试员', specialty: '错误处理', icon: '🚨' },
-            'checkout': { name: '结账流程测试员', specialty: '支付结算', icon: '🛒' },
-            'gdpr-compliance': { name: 'GDPR 合规测试员', specialty: '欧盟数据保护', icon: '🇪🇺' }
+            'networking-connectivity': { name: '网络连接测试员', specialty: 'API/网络', icon: '🔗' },
+            'system-errors': { name: '系统错误测试员', specialty: '错误处理', icon: '⚠️' }
         };
     }
 
