@@ -198,12 +198,12 @@ async function runTest() {
                     { name: '页面内容', check: '有 HTML 内容', passed: true, actual: '正常', critical: false }
                 ];
                 
-                // 计算通过率（排除警告项）
-                const criticalTests = tests.filter(t => t.critical);
-                const passedCritical = criticalTests.filter(t => t.passed).length;
-                pageInfo.testsPassed = passedCritical;
-                pageInfo.testsTotal = criticalTests.length;
+                // 计算通过率：显示所有测试的通过情况
+                const passedTests = tests.filter(t => t.passed).length;
+                pageInfo.testsPassed = passedTests;
+                pageInfo.testsTotal = tests.length;
                 pageInfo.hasWarnings = tests.some(t => t.warning);
+                pageInfo.hasFailures = tests.some(t => !t.passed);
 
                 pageInfo.tests = tests;
                 pageInfo.testsPassed = tests.filter(t => t.passed).length;
