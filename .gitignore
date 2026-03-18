@@ -14,6 +14,9 @@ input/
 ## OpenClaw State
 .openclaw/
 
+## OpenClaw Skills (与 WebTestAI 项目无关)
+skills/
+
 ## Environment Variables
 .env
 .env.local
@@ -34,6 +37,12 @@ desktop.ini
 tmp/
 temp/
 *.tmp
+*.bak
+
+## 旧版文档（已合并到 README.md）
+WebTestAI-README.md
+WebTestAI-Screenshots-Guide.md
+WEBTESTAI-PUSH-CHECKLIST.md
 
 ## Screenshots (optional - uncomment if needed)
 # screenshots/
