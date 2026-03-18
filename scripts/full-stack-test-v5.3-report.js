@@ -157,7 +157,7 @@ async function runTest() {
                 const screenshotPath = path.join(TEST_DIR, `screenshot-${i}.png`);
                 try {
                     const screenshotBuffer = await page.screenshot({ path: screenshotPath, fullPage: false });
-                    pageInfo.screenshot = screenshotBuffer;
+                    pageInfo.screenshot = screenshotBuffer.toString('base64'); // 转为 base64 字符串
                     pageInfo.screenshotPath = screenshotPath;
                 } catch (e) {
                     console.log(`  ⚠️ 截图失败：${e.message}`);

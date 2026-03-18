@@ -1,4 +1,4 @@
-/**
+﻿/**
  * HTML 报告生成器 - v3.1 (完整版)
  * 改进：显示 Agent 角色全名 + 测试开始/结束时间
  */
@@ -525,23 +525,18 @@ class HTMLReporter {
     renderIssuesSection(results) {
         const hasLLMIssues = results.issues && results.issues.length > 0;
         
-        // 收集失败的测试用例
         const failedTests = [];
         for (const page of results.pages || []) {
             if (page.tests) {
                 for (const test of page.tests) {
                     if (!test.passed) {
-                        failedTests.push({
-                            page: page.url,
-                            test: test
-                        });
+                        failedTests.push({ page: page.url, test: test });
                     }
                 }
             }
         }
         
         const hasFailedTests = failedTests.length > 0;
-        
         if (!hasLLMIssues && !hasFailedTests) return '';
         
         return `
@@ -549,35 +544,47 @@ class HTMLReporter {
                 <h2>⚠️ 发现的问题</h2>
                 ${hasLLMIssues ? `
                     <div style="margin-bottom: 24px;">
-                        <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--accent);">🤖 LLM 分析发现的问题</h3>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>问题</th>
-                                    <th>类型</th>
-                                    <th>优先级</th>
-                                    <th>置信度</th>
-                                    <th>来源 Agent</th>
-                                    <th>建议修复</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${results.issues.map(issue => `
-                                    <tr>
-                                        <td>${this.escapeHtml(issue.bug_title || '-')}</td>
-                                        <td>${(issue.bug_type || []).join(', ')}</td>
-                                        <td>
-                                            <span class="status ${issue.bug_priority >= 8 ? 'failed' : issue.bug_priority >= 4 ? 'warning' : 'success'}">
-                                                P${issue.bug_priority || '-'}
-                                            </span>
-                                        </td>
-                                        <td>${issue.bug_confidence || '-'}/10</td>
-                                        <td>${this.getAgentInfo(issue.agent || 'unknown').name}</td>
-                                        <td>${this.escapeHtml(issue.suggested_fix || '-')}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+                        <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--accent);">📋 分析发现的问题 (${results.issues.length}个)</h3>
+                        ${results.issues.map((issue, i) => {
+                            const priorityColor = issue.bug_priority >= 8 ? 'var(--error)' : issue.bug_priority >= 4 ? 'var(--warning)' : 'var(--success)';
+                            const priorityLabel = issue.bug_priority >= 8 ? 'P' + issue.bug_priority : issue.bug_priority >= 4 ? 'P' + issue.bug_priority : 'P' + issue.bug_priority;
+                            return `
+                            <div class="issue-card" style="background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+                                    <h3 style="font-size: 16px; margin: 0;">${this.escapeHtml(issue.bug_title)}</h3>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <span style="background: ${priorityColor}20; color: ${priorityColor}; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">${priorityLabel}</span>
+                                        <span style="background: var(--accent)20; color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 12px;">C${issue.bug_confidence || 10}</span>
+                                        <span style="background: rgba(139,92,246,0.2); color: #8b5cf6; padding: 4px 12px; border-radius: 20px; font-size: 12px;">${(issue.bug_type || []).join(' / ')}</span>
+                                    </div>
+                                </div>
+                                
+                                <div style="margin-bottom: 16px;">
+                                    <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">为什么是问题</h4>
+                                    <p style="color: var(--text); line-height: 1.6;">${this.escapeHtml(issue.bug_reasoning_why_a_bug || '需要进一步分析')}</p>
+                                </div>
+                                
+                                <div style="margin-bottom: 16px;">
+                                    <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">修复建议</h4>
+                                    <p style="color: var(--text); line-height: 1.6;"><strong style="color: var(--success);">✓</strong> ${this.escapeHtml(issue.suggested_fix || '需要进一步分析')}</p>
+                                </div>
+                                
+                                ${issue.reproduction_steps ? `
+                                <div style="margin-bottom: 16px;">
+                                    <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">复现步骤</h4>
+                                    <div style="background: var(--bg); padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px; white-space: pre-wrap;">${this.escapeHtml(issue.reproduction_steps)}</div>
+                                </div>
+                                ` : ''}
+                                
+                                <div>
+                                    <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">给开发/AI 的修复提示词</h4>
+                                    <div style="background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.3); padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px; color: var(--accent);">
+                                        ${this.escapeHtml(issue.ai_prompt || issue.suggested_fix || '需要进一步分析')}
+                                    </div>
+                                </div>
+                            </div>
+                            `;
+                        }).join('')}
                     </div>
                 ` : ''}
                 ${hasFailedTests ? `
