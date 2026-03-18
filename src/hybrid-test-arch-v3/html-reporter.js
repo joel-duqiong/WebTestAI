@@ -287,51 +287,47 @@ class HTMLReporter {
             <table>
                 <thead>
                     <tr>
-                        <th>URL</th>
-                        <th>状态</th>
+                        <th style="width: 40px;">#</th>
+                        <th>页面</th>
+                        <th>标题</th>
                         <th>加载时间</th>
-                        <th>匹配 Agent</th>
-                        <th>测试用例</th>
+                        <th>测试</th>
+                        <th>状态</th>
                         <th>详情</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${results.pages.map((page, index) => `
                         <tr>
-                            <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis;">
+                            <td style="color: var(--muted);">${index + 1}</td>
+                            <td style="max-width: 350px; overflow: hidden; text-overflow: ellipsis;">
                                 <a href="${this.escapeHtml(page.url)}" target="_blank" style="color: var(--accent); text-decoration: none;">
-                                    ${this.escapeHtml(page.url.length > 60 ? page.url.substring(0, 60) + '...' : page.url)}
+                                    ${this.escapeHtml(page.url.length > 50 ? page.url.substring(0, 50) + '...' : page.url)}
                                 </a>
+                            </td>
+                            <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(page.title || '')}">
+                                ${this.escapeHtml((page.title || '').length > 40 ? (page.title || '').substring(0, 40) + '...' : (page.title || '-'))}
+                            </td>
+                            <td>${page.loadTime || '-'} ms</td>
+                            <td>
+                                <span style="color: ${page.testsPassed === page.testsTotal ? 'var(--success)' : 'var(--warning)'}">
+                                    ${page.testsPassed !== undefined ? `${page.testsPassed}/${page.testsTotal}` : '-'}
+                                </span>
                             </td>
                             <td>
                                 <span class="status ${page.status === 200 ? 'success' : 'failed'}">
                                     ${page.status || '-'}
                                 </span>
                             </td>
-                            <td>${page.loadTime || '-'} ms</td>
                             <td>
-                                ${(page.matchedAgents || []).slice(0, 3).map(id => {
-                                    const info = this.getAgentInfo(id);
-                                    return `<span style="font-size: 16px;" title="${this.escapeHtml(info.name)}">${info.icon}</span>`;
-                                }).join(' ')}
-                                ${(page.matchedAgents || []).length > 3 ? `<span style="color: var(--muted); font-size: 12px;">+${(page.matchedAgents || []).length - 3}</span>` : ''}
-                            </td>
-                            <td>
-                                ${page.testsPassed !== undefined ? `
-                                    <span style="color: ${page.testsPassed === page.testsTotal ? 'var(--success)' : 'var(--warning)'}">
-                                        ${page.testsPassed}/${page.testsTotal}
-                                    </span>
-                                ` : '-'}
-                            </td>
-                            <td>
-                                <button class="details-btn" onclick="document.getElementById('details-${index}').style.display = document.getElementById('details-${index}').style.display === 'none' ? 'table-row' : 'none'; this.textContent = this.textContent === '查看详情' ? '收起' : '查看详情'">
-                                    ${page.tests && page.tests.length > 0 ? (index === 0 ? '收起' : '查看详情') : '无'}
+                                <button class="details-btn" onclick="document.getElementById('details-${index}').style.display = document.getElementById('details-${index}').style.display === 'none' ? 'table-row' : 'none'; this.textContent = this.textContent === '查看' ? '收起' : '查看'">
+                                    ${page.tests && page.tests.length > 0 ? (index === 0 ? '收起' : '查看') : '-'}
                                 </button>
                             </td>
                         </tr>
                         ${page.tests && page.tests.length > 0 ? `
                             <tr id="details-${index}" class="details-row" style="display: ${index === 0 ? 'table-row' : 'none'};">
-                                <td colspan="6">
+                                <td colspan="7">
                                     <div class="details-content">
                                         <div style="margin-bottom: 16px; color: var(--muted); font-size: 13px;">
                                             <strong>匹配 Agent:</strong> ${(page.matchedAgents || []).map(id => this.getAgentInfo(id).name).join(', ')}
