@@ -145,6 +145,17 @@ async function runTest() {
                 const isErrorTitle = pageTitle === '405' || pageTitle === '404' || pageTitle === '500' || pageTitle.includes('Access Denied');
                 const isHttpError = httpStatus >= 400;
                 
+                // 先保存截图（即使是错误页面也要有截图）
+                const screenshotPath = path.join(TEST_DIR, `screenshot-${i}.png`);
+                try {
+                    const screenshotBuffer = await page.screenshot({ path: screenshotPath, fullPage: false });
+                    pageInfo.screenshot = screenshotBuffer;
+                    pageInfo.screenshotPath = screenshotPath;
+                } catch (e) {
+                    console.log(`  ⚠️ 截图失败：${e.message}`);
+                    pageInfo.screenshot = null;
+                }
+                
                 if (isHttpError || isErrorTitle) {
                     pageInfo.title = `错误：${pageTitle} (HTTP ${httpStatus})`;
                     pageInfo.isErrorPage = true;
@@ -170,11 +181,6 @@ async function runTest() {
                 } else {
                     pageInfo.title = pageTitle;
                 }
-                
-                // 保存截图并读取为 base64
-                const screenshotPath = path.join(TEST_DIR, `screenshot-${i}.png`);
-                const screenshotBuffer = await page.screenshot({ path: screenshotPath, fullPage: false });
-                pageInfo.screenshot = screenshotBuffer;
                 
                 // 获取当前页面链接数
                 const linkCount = await page.evaluate(() => {
@@ -236,6 +242,25 @@ async function runTest() {
         
         console.log('\n📄 Step 2: 生成 HTML 报告...\n');
         
+        // 生成问题统计
+        const issueStats = {
+            byPriority: {
+                critical: results.issues.filter(i => i.bug_priority >= 8).length,
+                medium: results.issues.filter(i => i.bug_priority >= 4 && i.bug_priority < 8).length,
+                low: results.issues.filter(i => i.bug_priority < 4).length
+            },
+            byType: []
+        };
+        
+        // 统计问题类型
+        const typeCount = {};
+        results.issues.forEach(issue => {
+            issue.bug_type.forEach(type => {
+                typeCount[type] = (typeCount[type] || 0) + 1;
+            });
+        });
+        issueStats.byType = Object.entries(typeCount).map(([type, count]) => ({ type, count }));
+        
         const reporter = new HTMLReporter();
         const reportData = {
             timestamp: results.timestamp,
@@ -247,6 +272,7 @@ async function runTest() {
                 failedPages: results.failedPages.length,
                 totalIssues: results.issues.length
             },
+            issueStats: issueStats,
             pages: results.allPages,
             issues: results.issues
         };
