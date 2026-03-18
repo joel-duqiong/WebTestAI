@@ -87,9 +87,11 @@ async function runTest() {
                 pageInfo.status = 200;
                 pageInfo.title = await page.title();
                 
+                // 保存截图并读取为 base64
                 const screenshotPath = path.join(TEST_DIR, `screenshot-${i}.png`);
-                await page.screenshot({ path: screenshotPath, fullPage: false });
-                pageInfo.screenshot = `screenshot-${i}.png`;
+                const screenshotBuffer = await page.screenshot({ path: screenshotPath, fullPage: false });
+                pageInfo.screenshot = screenshotBuffer; // 直接保存 Buffer，用于 HTML 报告
+                pageInfo.screenshotPath = screenshotPath; // 保存路径用于参考
 
                 const linkCount = links.length;
                 const tests = [

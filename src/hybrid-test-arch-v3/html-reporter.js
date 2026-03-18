@@ -118,9 +118,32 @@ class HTMLReporter {
             </div>
             <div class="summary-card">
                 <div class="label">发现问题</div>
-                <div class="value">${results.summary.totalIssues}</div>
+                <div class="value">${results.summary.totalIssues || 0}</div>
             </div>
         </div>
+        
+        ${results.issueStats ? `
+        <div class="summary-grid" style="margin-top: 16px;">
+            <div class="summary-card" style="border-left: 3px solid var(--error);">
+                <div class="label">严重 (P8-10)</div>
+                <div class="value" style="color: var(--error)">${results.issueStats.byPriority.critical || 0}</div>
+            </div>
+            <div class="summary-card" style="border-left: 3px solid var(--warning);">
+                <div class="label">中等 (P4-7)</div>
+                <div class="value" style="color: var(--warning)">${results.issueStats.byPriority.medium || 0}</div>
+            </div>
+            <div class="summary-card" style="border-left: 3px solid var(--success);">
+                <div class="label">轻微 (P1-3)</div>
+                <div class="value" style="color: var(--success)">${results.issueStats.byPriority.low || 0}</div>
+            </div>
+            ${results.issueStats.byType && results.issueStats.byType.length > 0 ? `
+            <div class="summary-card">
+                <div class="label">问题类型</div>
+                <div class="value" style="font-size: 14px">${results.issueStats.byType.map(t => `${t.type}(${t.count})`).join(', ')}</div>
+            </div>
+            ` : ''}
+        </div>
+        ` : ''}
         
         <div style="margin-bottom: 24px; padding: 12px 16px; background: rgba(210,153,34,0.1); border: 1px solid rgba(210,153,34,0.3); border-radius: 8px; font-size: 13px;">
             <strong>💡 说明：</strong>
@@ -189,7 +212,7 @@ class HTMLReporter {
                                 <h4 style="margin-bottom: 16px;">📸 页面截图 - ${p.title || '无标题'}</h4>
                                 ${p.screenshot ? `
                                 <div class="screenshot-container">
-                                    <img src="data:image/png;base64,${p.screenshot.toString('base64')}" alt="${p.title}">
+                                    <img src="data:image/png;base64,${Buffer.isBuffer(p.screenshot) ? p.screenshot.toString('base64') : p.screenshot}" alt="${p.title}">
                                     <div class="screenshot-caption">${p.url} | ${p.loadTime}ms | ${p.testsPassed}/${p.testsTotal} 测试通过</div>
                                 </div>
                                 ` : '<p style="color: var(--muted);">无截图可用</p>'}
