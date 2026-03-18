@@ -539,83 +539,88 @@ class HTMLReporter {
         const hasFailedTests = failedTests.length > 0;
         if (!hasLLMIssues && !hasFailedTests) return '';
         
+        // 合并所有问题为卡片数组
+        const allIssueCards = [];
+        
+        // LLM 分析的问题
+        if (hasLLMIssues) {
+            for (const issue of results.issues) {
+                allIssueCards.push({
+                    type: 'llm',
+                    bug_title: issue.bug_title || '未命名问题',
+                    bug_type: issue.bug_type || [],
+                    bug_priority: issue.bug_priority || 5,
+                    bug_confidence: issue.bug_confidence || 7,
+                    bug_reasoning_why_a_bug: issue.bug_reasoning_why_a_bug || '需要进一步分析',
+                    suggested_fix: issue.suggested_fix || '需要进一步分析',
+                    reproduction_steps: issue.reproduction_steps || null,
+                    ai_prompt: issue.ai_prompt || issue.suggested_fix || '需要进一步分析'
+                });
+            }
+        }
+        
+        // 失败的测试用例转为卡片
+        if (hasFailedTests) {
+            for (const item of failedTests) {
+                allIssueCards.push({
+                    type: 'test',
+                    bug_title: `测试未通过 - ${item.test.name}`,
+                    bug_type: ['Functional', item.test.check || '测试失败'],
+                    bug_priority: item.test.critical ? 8 : 5,
+                    bug_confidence: 10,
+                    bug_reasoning_why_a_bug: `测试用例"${item.test.name}"未通过。检查项：${item.test.check || '-'}，实际结果：${item.test.actual || '-'}`,
+                    suggested_fix: `请检查"${item.test.name}"相关功能，确保${item.test.check || '测试条件'}满足要求`,
+                    reproduction_steps: `1. 访问 ${item.page}\n2. 执行测试：${item.test.name}\n3. 检查：${item.test.check || '-'}`,
+                    ai_prompt: `修复测试失败：${item.test.name} - ${item.test.check}。实际结果：${item.test.actual}。请检查相关代码逻辑。`
+                });
+            }
+        }
+        
         return `
             <div class="section">
-                <h2>⚠️ 发现的问题</h2>
-                ${hasLLMIssues ? `
-                    <div style="margin-bottom: 24px;">
-                        <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--accent);">📋 分析发现的问题 (${results.issues.length}个)</h3>
-                        ${results.issues.map((issue, i) => {
-                            const priorityColor = issue.bug_priority >= 8 ? 'var(--error)' : issue.bug_priority >= 4 ? 'var(--warning)' : 'var(--success)';
-                            const priorityLabel = issue.bug_priority >= 8 ? 'P' + issue.bug_priority : issue.bug_priority >= 4 ? 'P' + issue.bug_priority : 'P' + issue.bug_priority;
-                            return `
-                            <div class="issue-card" style="background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px;">
-                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-                                    <h3 style="font-size: 16px; margin: 0;">${this.escapeHtml(issue.bug_title)}</h3>
-                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                        <span style="background: ${priorityColor}20; color: ${priorityColor}; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">${priorityLabel}</span>
-                                        <span style="background: var(--accent)20; color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 12px;">C${issue.bug_confidence || 10}</span>
-                                        <span style="background: rgba(139,92,246,0.2); color: #8b5cf6; padding: 4px 12px; border-radius: 20px; font-size: 12px;">${(issue.bug_type || []).join(' / ')}</span>
-                                    </div>
-                                </div>
-                                
-                                <div style="margin-bottom: 16px;">
-                                    <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">为什么是问题</h4>
-                                    <p style="color: var(--text); line-height: 1.6;">${this.escapeHtml(issue.bug_reasoning_why_a_bug || '需要进一步分析')}</p>
-                                </div>
-                                
-                                <div style="margin-bottom: 16px;">
-                                    <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">修复建议</h4>
-                                    <p style="color: var(--text); line-height: 1.6;"><strong style="color: var(--success);">✓</strong> ${this.escapeHtml(issue.suggested_fix || '需要进一步分析')}</p>
-                                </div>
-                                
-                                ${issue.reproduction_steps ? `
-                                <div style="margin-bottom: 16px;">
-                                    <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">复现步骤</h4>
-                                    <div style="background: var(--bg); padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px; white-space: pre-wrap;">${this.escapeHtml(issue.reproduction_steps)}</div>
-                                </div>
-                                ` : ''}
-                                
-                                <div>
-                                    <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">给开发/AI 的修复提示词</h4>
-                                    <div style="background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.3); padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px; color: var(--accent);">
-                                        ${this.escapeHtml(issue.ai_prompt || issue.suggested_fix || '需要进一步分析')}
-                                    </div>
+                <h2>⚠️ 发现的问题 (${allIssueCards.length}个)</h2>
+                <div style="margin-bottom: 24px;">
+                    ${allIssueCards.map((issue, i) => {
+                        const priorityColor = issue.bug_priority >= 8 ? 'var(--error)' : issue.bug_priority >= 4 ? 'var(--warning)' : 'var(--success)';
+                        const priorityLabel = 'P' + issue.bug_priority;
+                        return `
+                        <div class="issue-card" style="background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+                                <h3 style="font-size: 16px; margin: 0;">${this.escapeHtml(issue.bug_title)}</h3>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <span style="background: ${priorityColor}20; color: ${priorityColor}; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">${priorityLabel}</span>
+                                    <span style="background: var(--accent)20; color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 12px;">C${issue.bug_confidence}</span>
+                                    <span style="background: rgba(139,92,246,0.2); color: #8b5cf6; padding: 4px 12px; border-radius: 20px; font-size: 12px;">${(issue.bug_type || []).join(' / ')}</span>
                                 </div>
                             </div>
-                            `;
-                        }).join('')}
-                    </div>
-                ` : ''}
-                ${hasFailedTests ? `
-                    <div>
-                        <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--accent);">📋 失败的测试用例 (${failedTests.length}个)</h3>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>页面</th>
-                                    <th>测试名称</th>
-                                    <th>检查项</th>
-                                    <th>实际结果</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${failedTests.map(item => `
-                                    <tr>
-                                        <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">
-                                            <a href="${this.escapeHtml(item.page)}" target="_blank" style="color: var(--accent); text-decoration: none;">
-                                                ${this.escapeHtml(item.page.length > 50 ? item.page.substring(0, 50) + '...' : item.page)}
-                                            </a>
-                                        </td>
-                                        <td>${this.escapeHtml(item.test.name)}</td>
-                                        <td style="color: var(--muted);">${this.escapeHtml(item.test.check)}</td>
-                                        <td style="color: var(--error); font-weight: 600;">❌ ${this.escapeHtml(item.test.actual)}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                ` : ''}
+                            
+                            <div style="margin-bottom: 16px;">
+                                <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">为什么是问题</h4>
+                                <p style="color: var(--text); line-height: 1.6;">${this.escapeHtml(issue.bug_reasoning_why_a_bug)}</p>
+                            </div>
+                            
+                            <div style="margin-bottom: 16px;">
+                                <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">修复建议</h4>
+                                <p style="color: var(--text); line-height: 1.6;"><strong style="color: var(--success);">✓</strong> ${this.escapeHtml(issue.suggested_fix)}</p>
+                            </div>
+                            
+                            ${issue.reproduction_steps ? `
+                            <div style="margin-bottom: 16px;">
+                                <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">复现步骤</h4>
+                                <div style="background: var(--bg); padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px; white-space: pre-wrap;">${this.escapeHtml(issue.reproduction_steps)}</div>
+                            </div>
+                            ` : ''}
+                            
+                            <div>
+                                <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">给开发/AI 的修复提示词</h4>
+                                <div style="background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.3); padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px; color: var(--accent);">
+                                    ${this.escapeHtml(issue.ai_prompt)}
+                                </div>
+                            </div>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
             </div>
         `;
     }
