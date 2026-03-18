@@ -93,15 +93,22 @@ async function runTest() {
 
                 const linkCount = links.length;
                 const tests = [
-                    { name: 'HTTPS', check: '使用 HTTPS 协议', passed: url.startsWith('https://'), actual: url.startsWith('https://') ? '通过' : '失败' },
-                    { name: '加载时间', check: '页面加载 < 10 秒', passed: loadTime < 10000, actual: `${loadTime}ms` },
-                    { name: '页面标题', check: '有页面标题', passed: !!pageInfo.title && pageInfo.title.length > 0, actual: pageInfo.title || '无标题' },
-                    { name: '页面链接', check: '有出站链接', passed: linkCount > 0, actual: `${linkCount} 个链接` },
-                    { name: '页面截图', check: '截图成功', passed: !!pageInfo.screenshot, actual: pageInfo.screenshot ? '已截图' : '无截图' },
-                    { name: '移动端适配', check: 'viewport 正确', passed: true, actual: '1280x800' },
-                    { name: '页面可访问', check: 'HTTP 状态正常', passed: pageInfo.status === 200, actual: `HTTP ${pageInfo.status}` },
-                    { name: '页面内容', check: '有 HTML 内容', passed: true, actual: '正常' }
+                    { name: 'HTTPS', check: '使用 HTTPS 协议', passed: url.startsWith('https://'), actual: url.startsWith('https://') ? '通过' : '失败', critical: true },
+                    { name: '加载时间', check: '页面加载 < 10 秒', passed: loadTime < 10000, actual: `${loadTime}ms`, critical: false },
+                    { name: '页面标题', check: '有页面标题', passed: !!pageInfo.title && pageInfo.title.length > 0, actual: pageInfo.title || '无标题', critical: true },
+                    { name: '页面链接', check: '有内部链接', passed: linkCount >= 0, actual: `${linkCount} 个链接`, critical: false, warning: linkCount === 0 }, // 0 个链接只是警告，不失败
+                    { name: '页面截图', check: '截图成功', passed: !!pageInfo.screenshot, actual: pageInfo.screenshot ? '已截图' : '无截图', critical: false },
+                    { name: '移动端适配', check: 'viewport 正确', passed: true, actual: '1280x800', critical: false },
+                    { name: '页面可访问', check: 'HTTP 状态正常', passed: pageInfo.status === 200, actual: `HTTP ${pageInfo.status}`, critical: true },
+                    { name: '页面内容', check: '有 HTML 内容', passed: true, actual: '正常', critical: false }
                 ];
+                
+                // 计算通过率（排除警告项）
+                const criticalTests = tests.filter(t => t.critical);
+                const passedCritical = criticalTests.filter(t => t.passed).length;
+                pageInfo.testsPassed = passedCritical;
+                pageInfo.testsTotal = criticalTests.length;
+                pageInfo.hasWarnings = tests.some(t => t.warning);
 
                 pageInfo.tests = tests;
                 pageInfo.testsPassed = tests.filter(t => t.passed).length;

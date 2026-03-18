@@ -41,7 +41,7 @@ class HTMLReporter {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>混合测试报告 v3.0 - ${results.baseUrl}</title>
     <style>
-        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #f0f6fc; --muted: #8b949e; --success: #3fb950; --error: #f85149; --accent: #58a6ff; }
+        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #f0f6fc; --muted: #8b949e; --success: #3fb950; --error: #f85149; --accent: #58a6ff; --warning: #d29922; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
         .container { max-width: 1600px; margin: 0 auto; }
@@ -83,6 +83,7 @@ class HTMLReporter {
         .test-item { padding: 8px 12px; border-radius: 6px; margin: 4px 0; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
         .test-item.passed { background: rgba(63,185,80,0.1); border-left: 3px solid var(--success); }
         .test-item.failed { background: rgba(248,81,73,0.1); border-left: 3px solid var(--error); }
+        .test-item.warning { background: rgba(210,153,34,0.1); border-left: 3px solid var(--warning); }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
         .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
         .stat-card .label { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
@@ -112,13 +113,22 @@ class HTMLReporter {
                 <div class="value success">${results.summary.successPages}</div>
             </div>
             <div class="summary-card">
-                <div class="label">失败</div>
+                <div class="label">加载失败</div>
                 <div class="value failed">${results.summary.failedPages}</div>
             </div>
             <div class="summary-card">
-                <div class="label">问题</div>
+                <div class="label">发现问题</div>
                 <div class="value">${results.summary.totalIssues}</div>
             </div>
+        </div>
+        
+        <div style="margin-bottom: 24px; padding: 12px 16px; background: rgba(210,153,34,0.1); border: 1px solid rgba(210,153,34,0.3); border-radius: 8px; font-size: 13px;">
+            <strong>💡 说明：</strong>
+            <span style="color: var(--muted); margin-left: 8px;">
+                "加载失败" = HTTP 错误（404/500/超时） | 
+                "测试未通过" = 部分测试项失败（但页面可正常访问） |
+                "⚠️" = 有警告项（如缺少链接，不影响功能）
+            </span>
         </div>
         
         ${results.agents && results.agents.length > 0 ? `
@@ -169,7 +179,7 @@ class HTMLReporter {
                         <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.url}</td>
                         <td>${(p.title || '').substring(0, 30)}${(p.title || '').length > 30 ? '...' : ''}</td>
                         <td>${p.loadTime}ms</td>
-                        <td>${p.tests ? `${p.testsPassed}/${p.testsTotal}` : '-'}</td>
+                        <td>${p.tests ? `${p.testsPassed}/${p.testsTotal}` : '-'}${p.hasWarnings ? ' ⚠️' : ''}</td>
                         <td><span class="status ${p.status === 200 ? 'success' : 'failed'}">${p.status}</span></td>
                         <td><button class="details-btn" onclick="toggleDetails(this, 'details-${i}')">📸 查看</button></td>
                     </tr>
@@ -187,9 +197,9 @@ class HTMLReporter {
                                 <h4 style="margin: 24px 0 12px;">📋 测试用例详情</h4>
                                 <div class="test-list">
                                     ${p.tests ? p.tests.map(t => `
-                                    <div class="test-item ${t.passed ? 'passed' : 'failed'}">
+                                    <div class="test-item ${t.passed ? (t.warning ? 'warning' : 'passed') : 'failed'}">
                                         <strong>${t.name}</strong>: ${t.check}
-                                        <span style="float: right">${t.passed ? '✅' : '❌'} ${t.actual}</span>
+                                        <span style="float: right">${t.passed ? (t.warning ? '⚠️' : '✅') : '❌'} ${t.actual}</span>
                                     </div>
                                     `).join('') : '<p style="color: var(--muted);">无测试用例</p>'}
                                 </div>
