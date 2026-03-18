@@ -275,6 +275,10 @@ async function createSession(options = {}) {
 
                 const reportPaths = {};
 
+                // 添加测试时间
+                results.testStartTime = session.timestamp;
+                results.testEndTime = new Date().toISOString();
+
                 if (format.includes('html')) {
                     const HTMLReporter = require('../html-reporter');
                     const reporter = new HTMLReporter();
