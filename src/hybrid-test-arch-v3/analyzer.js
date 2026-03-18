@@ -1,193 +1,71 @@
 /**
- * 混合测试架构 - 智能分析层 (OpenTestAI 提示词)
- * 负责：使用 OpenTestAI 测试员提示词分析页面
+ * 混合测试架构 v3.1 - 智能分析层
+ * 改进：支持 33 个 OpenTestAI Agent，动态匹配页面类型
  */
 
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const PageClassifier = require('./page-classifier');
 
 class PageAnalyzer {
     constructor(options = {}) {
-        this.agents = options.agents || ['mia', 'sophia', 'tariq', 'leila'];
-        this.promptsDir = options.promptsDir || path.join(__dirname, '../prompts');
-        this.loadPrompts();
-    }
-
-    /**
-     * 加载提示词
-     */
-    loadPrompts() {
+        this.promptsDir = options.promptsDir || path.join(__dirname, 'prompts');
+        this.classifier = new PageClassifier();
         this.prompts = {};
-        
-        const agentPrompts = {
-            mia: 'mia-ui-ux.md',
-            sophia: 'sophia-accessibility.md',
-            tariq: 'tariq-security.md',
-            leila: 'leila-content.md'
-        };
+        this.loadAllPrompts();
+    }
 
-        for (const [agent, file] of Object.entries(agentPrompts)) {
-            const promptPath = path.join(this.promptsDir, file);
-            if (fs.existsSync(promptPath)) {
-                this.prompts[agent] = fs.readFileSync(promptPath, 'utf8');
-            } else {
-                this.prompts[agent] = this.getDefaultPrompt(agent);
-            }
+    /**
+     * 加载所有 prompt 文件
+     */
+    loadAllPrompts() {
+        if (!fs.existsSync(this.promptsDir)) return;
+
+        const files = fs.readdirSync(this.promptsDir).filter(f => f.endsWith('.md'));
+        for (const file of files) {
+            const id = file.replace('.md', '');
+            const content = fs.readFileSync(path.join(this.promptsDir, file), 'utf8');
+            this.prompts[id] = content;
         }
+        console.log(`📚 已加载 ${Object.keys(this.prompts).length} 个 Agent prompt`);
     }
 
     /**
-     * 获取默认提示词
+     * 获取 Agent 的 prompt
      */
-    getDefaultPrompt(agent) {
-        const prompts = {
-            mia: `你是 Mia，UI/UX 和表单专家。分析页面截图和 DOM 结构，查找：
-
-**UI/UX 问题:**
-- 布局问题（重叠、错位、网格断裂）
-- 间距、字体、颜色不一致
-- 视觉层次混乱
-- 导航混淆
-- 文本截断或裁剪
-- 视觉元素缺失或损坏
-- 响应式问题
-- 按钮或交互元素问题
-
-**表单问题:**
-- 表单标签不清晰
-- 缺少必填字段标识
-- 输入框大小不合适
-- 表单布局混乱
-- 缺少帮助文本
-- 提交按钮位置问题
-- 表单验证反馈问题
-
-对每个发现的问题，提供：
-- bug_title: 清晰描述
-- bug_type: ["UI/UX", "Forms", "Layout"]
-- bug_priority: 1-10
-- bug_confidence: 1-10
-- bug_reasoning_why_a_bug: 用户影响
-- suggested_fix: 具体建议`,
-
-            sophia: `你是 Sophia，无障碍访问专家。分析页面截图和无障碍树，查找：
-
-**无障碍问题:**
-- 颜色对比度低（文本与背景）
-- 图片缺少 alt 文本
-- 点击目标小（< 44x44 像素）
-- 缺少可见焦点指示器
-- 标题结构差（h1, h2, h3 层次）
-- 交互元素缺少 ARIA 标签
-- 键盘导航问题
-- 屏幕阅读器兼容性问题
-
-对每个发现的问题，提供：
-- bug_title: 清晰描述
-- bug_type: ["Accessibility", "WCAG", "Contrast"]
-- bug_priority: 1-10 (无障碍问题优先级高)
-- bug_confidence: 1-10
-- bug_reasoning_why_a_bug: 对残障用户的影响
-- suggested_fix: WCAG 合规建议`,
-
-            tariq: `你是 Tariq，安全和 OWASP 专家。分析页面截图和 DOM 结构，查找：
-
-**安全问题:**
-- 表单缺少 HTTPS 指示器
-- 敏感数据暴露
-- 缺少认证指示器
-- 密码字段不安全（未掩码）
-- 会话管理问题
-- XSS 漏洞指示器
-- SQL 注入风险
-- 缺少安全头
-
-**OWASP Top 10 关注:**
-- 认证破坏
-- 敏感数据暴露
-- 配置错误
-- 注入漏洞
-
-对每个发现的问题，提供：
-- bug_title: 清晰描述
-- bug_type: ["Security", "OWASP", "Authentication"]
-- bug_priority: 8-10 (安全问题关键)
-- bug_confidence: 1-10
-- bug_reasoning_why_a_bug: 安全风险
-- suggested_fix: 安全建议`,
-
-            leila: `你是 Leila，内容专家。分析页面截图，查找：
-
-**内容问题:**
-- 占位符文本（Lorem Ipsum）未删除
-- 图片损坏或内容缺失
-- 明显拼写或语法错误
-- 语气或品牌不一致
-- 内容部分缺失或不完整
-- 版权日期过时
-- 链接损坏
-- 误导性或混淆文案
-- 产品/服务信息错误
-- 术语不一致
-- 可读性差
-
-对每个发现的问题，提供：
-- bug_title: 清晰描述
-- bug_type: ["Content", "Copywriting"]
-- bug_priority: 1-10
-- bug_confidence: 1-10
-- bug_reasoning_why_a_bug: 用户理解影响
-- suggested_fix: 内容改进建议`
-        };
-
-        return prompts[agent] || '';
+    getPrompt(agentId) {
+        return this.prompts[agentId] || null;
     }
 
     /**
-     * 分析页面（使用 LLM）
-     * 注意：实际使用需要调用 LLM API，这里提供提示词构建
+     * 识别页面类型，返回匹配的 Agent 列表
      */
-    async analyzePage(pageData, agent = 'mia') {
-        const prompt = this.buildPrompt(agent, pageData);
-        
-        // 实际使用时调用 LLM API
-        // const result = await callLLM(prompt);
-        // return parseResult(result);
-
-        // 当前返回提示词和分析数据
-        return {
-            agent,
-            prompt,
-            pageData: {
-                url: pageData.url,
-                title: pageData.title,
-                features: pageData.features,
-                consoleLogs: pageData.consoleLogs
-            }
-        };
+    classifyPage(pageData) {
+        return this.classifier.classify(pageData);
     }
 
     /**
-     * 构建提示词
+     * 构建 LLM 分析 prompt
      */
-    buildPrompt(agent, pageData) {
-        const basePrompt = this.prompts[agent] || this.getDefaultPrompt(agent);
-        
-        const context = `
+    buildPrompt(agentId, pageData) {
+        const basePrompt = this.getPrompt(agentId);
+        if (!basePrompt) return null;
+
+        return `
 ## 页面信息
 - URL: ${pageData.url}
 - 标题：${pageData.title || '无标题'}
 - 加载时间：${pageData.loadTime}ms
-- 状态：${pageData.status}
+- 状态码：${pageData.status}
 
 ## 页面特征
 ${JSON.stringify(pageData.features, null, 2)}
 
-## 控制台日志
-${JSON.stringify(pageData.consoleLogs.slice(0, 10), null, 2)}
+## 控制台日志 (前 10 条)
+${JSON.stringify((pageData.consoleLogs || []).slice(0, 10), null, 2)}
 
-## 任务
+## 测试要求
 ${basePrompt}
 
 ## 输出格式
@@ -206,42 +84,28 @@ ${basePrompt}
 - 基于实际页面内容分析
 - 提供具体可执行的修复建议
 `;
-
-        return context;
     }
 
     /**
-     * 多 Agent 并行分析
+     * 为页面生成动态测试用例
+     * 根据匹配的 Agent 数量和类型动态生成
      */
-    async analyzeWithMultipleAgents(pageData, agents = null) {
-        const selectedAgents = agents || this.agents;
-        const results = [];
-
-        for (const agent of selectedAgents) {
-            const result = await this.analyzePage(pageData, agent);
-            results.push(result);
-        }
-
-        return results;
-    }
-
-    /**
-     * 生成测试用例
-     */
-    generateTestCases(pageData) {
+    generateTestCases(pageData, matchedAgents) {
         const tests = [];
         const features = pageData.features || {};
 
-        // 基础测试
+        // ===== 基础测试（所有页面必测）=====
         tests.push({
+            agent: 'basic',
             name: '页面标题',
             check: '标题长度>=3',
             passed: !!(pageData.title && pageData.title.length >= 3),
             expected: '>=3 字符',
-            actual: `"${pageData.title || ''}" (${(pageData.title || '').length}字符)`
+            actual: `"${(pageData.title || '').substring(0, 50)}" (${(pageData.title || '').length}字符)`
         });
 
         tests.push({
+            agent: 'basic',
             name: '页面内容',
             check: '内容>100 字符',
             passed: !!(pageData.content && pageData.content.length > 100),
@@ -250,47 +114,284 @@ ${basePrompt}
         });
 
         tests.push({
-            name: '加载性能',
-            check: '<5 秒 (SPA)',
-            passed: pageData.loadTime < 5000,
-            expected: '<5 秒',
-            actual: `${pageData.loadTime}ms`
-        });
-
-        tests.push({
+            agent: 'basic',
             name: 'HTTP 状态',
             check: '200 OK',
             passed: pageData.status === 200,
             expected: '200',
-            actual: pageData.status || '-'
+            actual: String(pageData.status || '-')
         });
 
-        // 功能测试
-        if (features.hasNavigation) {
-            tests.push({ name: '导航菜单', check: '导航存在', passed: true, expected: '有导航', actual: '✓' });
+        // ===== 性能测试 (Viktor) =====
+        if (matchedAgents.some(a => a.id === 'performance-core-web-vitals')) {
+            tests.push({
+                agent: 'performance-core-web-vitals',
+                name: '页面加载性能',
+                check: '加载时间 < 3s',
+                passed: pageData.loadTime < 3000,
+                expected: '<3000ms',
+                actual: `${pageData.loadTime}ms`
+            });
+            tests.push({
+                agent: 'performance-core-web-vitals',
+                name: '首次加载性能',
+                check: '加载时间 < 5s (SPA)',
+                passed: pageData.loadTime < 5000,
+                expected: '<5000ms',
+                actual: `${pageData.loadTime}ms`
+            });
         }
 
-        if (features.hasBanner) {
-            tests.push({ name: 'Banner 展示', check: 'Banner 存在', passed: true, expected: '有 Banner', actual: '✓' });
+        // ===== 无障碍测试 (Sophia) =====
+        if (matchedAgents.some(a => a.id === 'accessibility')) {
+            tests.push({
+                agent: 'accessibility',
+                name: '图片 Alt 属性',
+                check: '图片数量检测',
+                passed: features.imageCount > 0,
+                expected: '有图片内容',
+                actual: `${features.imageCount || 0}张图片`
+            });
+            tests.push({
+                agent: 'accessibility',
+                name: '导航可用性',
+                check: '导航结构存在',
+                passed: !!features.hasNavigation,
+                expected: '有导航',
+                actual: features.hasNavigation ? '✓' : '✗'
+            });
         }
 
-        if (features.hasProductCards) {
-            tests.push({ name: '商品展示', check: '商品卡片显示', passed: true, expected: '有商品卡片', actual: '✓' });
+        // ===== 安全测试 (Tariq) =====
+        if (matchedAgents.some(a => a.id === 'security-owasp')) {
+            const isHTTPS = (pageData.url || '').startsWith('https://');
+            tests.push({
+                agent: 'security-owasp',
+                name: 'HTTPS 加密',
+                check: '使用 HTTPS',
+                passed: isHTTPS,
+                expected: 'HTTPS',
+                actual: isHTTPS ? 'HTTPS ✓' : 'HTTP ✗'
+            });
+            tests.push({
+                agent: 'security-owasp',
+                name: '控制台错误',
+                check: '无 JS 错误',
+                passed: !(pageData.consoleLogs && pageData.consoleLogs.some(l => l.type === 'error')),
+                expected: '无错误',
+                actual: `${(pageData.consoleLogs || []).filter(l => l.type === 'error').length}个错误`
+            });
         }
 
-        if (features.imageCount > 0) {
-            tests.push({ name: '图片检查', check: '图片加载', passed: true, expected: '有图片', actual: `${features.imageCount}张` });
+        // ===== 内容测试 (Leila) =====
+        if (matchedAgents.some(a => a.id === 'content')) {
+            tests.push({
+                agent: 'content',
+                name: '内容完整性',
+                check: '链接数量',
+                passed: (features.linkCount || 0) > 0,
+                expected: '>0 链接',
+                actual: `${features.linkCount || 0}个链接`
+            });
         }
 
-        if (features.linkCount > 0) {
-            tests.push({ name: '链接检查', check: '内部链接', passed: true, expected: '>0 链接', actual: `${features.linkCount}个` });
+        // ===== 移动端测试 (Zanele) =====
+        if (matchedAgents.some(a => a.id === 'mobile')) {
+            tests.push({
+                agent: 'mobile',
+                name: '按钮/交互元素',
+                check: '有可点击元素',
+                passed: (features.buttonCount || 0) > 0,
+                expected: '>0 按钮',
+                actual: `${features.buttonCount || 0}个按钮`
+            });
         }
 
-        if (features.buttonCount > 0) {
-            tests.push({ name: '按钮检查', check: '按钮存在', passed: true, expected: '>0 按钮', actual: `${features.buttonCount}个` });
+        // ===== 首页专项测试 =====
+        if (matchedAgents.some(a => a.id === 'homepage')) {
+            tests.push({
+                agent: 'homepage',
+                name: '首页 Banner',
+                check: 'Banner 展示',
+                passed: !!features.hasBanner,
+                expected: '有 Banner',
+                actual: features.hasBanner ? '✓' : '✗'
+            });
+        }
+
+        // ===== 搜索框测试 =====
+        if (matchedAgents.some(a => a.id === 'search-box')) {
+            tests.push({
+                agent: 'search-box',
+                name: '搜索功能',
+                check: '搜索框存在',
+                passed: !!features.hasSearchBox,
+                expected: '有搜索框',
+                actual: features.hasSearchBox ? '✓' : '✗'
+            });
+        }
+
+        // ===== 表单测试 (Mia) =====
+        if (matchedAgents.some(a => a.id === 'ui-ux-forms')) {
+            tests.push({
+                agent: 'ui-ux-forms',
+                name: '表单存在性',
+                check: '表单元素检测',
+                passed: !!features.hasForms,
+                expected: '有表单',
+                actual: features.hasForms ? '✓' : '✗'
+            });
+        }
+
+        // ===== 电商测试 =====
+        if (matchedAgents.some(a => a.id === 'product-catalog')) {
+            tests.push({
+                agent: 'product-catalog',
+                name: '商品展示',
+                check: '商品卡片存在',
+                passed: !!features.hasProductCards,
+                expected: '有商品卡片',
+                actual: features.hasProductCards ? '✓' : '✗'
+            });
+        }
+
+        if (matchedAgents.some(a => a.id === 'product-details')) {
+            tests.push({
+                agent: 'product-details',
+                name: '加入购物车',
+                check: '购买按钮存在',
+                passed: !!features.hasAddToCart,
+                expected: '有购买按钮',
+                actual: features.hasAddToCart ? '✓' : '✗'
+            });
+        }
+
+        // ===== 视频测试 =====
+        if (matchedAgents.some(a => a.id === 'video')) {
+            tests.push({
+                agent: 'video',
+                name: '视频元素',
+                check: '视频存在',
+                passed: !!features.hasVideo,
+                expected: '有视频',
+                actual: features.hasVideo ? '✓' : '✗'
+            });
+        }
+
+        // ===== Cookie/隐私测试 =====
+        if (matchedAgents.some(a => a.id === 'privacy-cookie-consent')) {
+            tests.push({
+                agent: 'privacy-cookie-consent',
+                name: 'Cookie 提示',
+                check: 'Cookie Banner',
+                passed: !!features.hasCookieBanner,
+                expected: '有 Cookie 提示',
+                actual: features.hasCookieBanner ? '✓' : '未检测到'
+            });
+        }
+
+        // ===== 控制台日志测试 =====
+        if (matchedAgents.some(a => a.id === 'console-logs')) {
+            const errors = (pageData.consoleLogs || []).filter(l => l.type === 'error');
+            const warnings = (pageData.consoleLogs || []).filter(l => l.type === 'warning');
+            tests.push({
+                agent: 'console-logs',
+                name: '控制台健康',
+                check: '无严重错误',
+                passed: errors.length === 0,
+                expected: '0 错误',
+                actual: `${errors.length}个错误, ${warnings.length}个警告`
+            });
+        }
+
+        // ===== 国际化测试 =====
+        if (matchedAgents.some(a => a.id === 'i18n-localization')) {
+            tests.push({
+                agent: 'i18n-localization',
+                name: '语言切换',
+                check: '多语言支持',
+                passed: !!features.hasLanguageSwitcher,
+                expected: '有语言切换器',
+                actual: features.hasLanguageSwitcher ? '✓' : '✗'
+            });
+        }
+
+        // ===== 注册/登录测试 =====
+        if (matchedAgents.some(a => a.id === 'signup')) {
+            tests.push({
+                agent: 'signup',
+                name: '登录/注册表单',
+                check: '认证表单存在',
+                passed: !!features.hasLoginForm,
+                expected: '有认证表单',
+                actual: features.hasLoginForm ? '✓' : '✗'
+            });
+        }
+
+        // ===== 系统错误测试 =====
+        if (matchedAgents.some(a => a.id === 'system-errors')) {
+            tests.push({
+                agent: 'system-errors',
+                name: 'HTTP 错误检测',
+                check: '无 4xx/5xx 错误',
+                passed: pageData.status < 400,
+                expected: '状态码 < 400',
+                actual: `${pageData.status}`
+            });
+        }
+
+        // ===== 新闻/文章测试 =====
+        if (matchedAgents.some(a => a.id === 'news')) {
+            tests.push({
+                agent: 'news',
+                name: '文章结构',
+                check: 'Article 标签',
+                passed: !!features.hasArticle,
+                expected: '有 article 标签',
+                actual: features.hasArticle ? '✓' : '✗'
+            });
+        }
+
+        // ===== AI 聊天机器人测试 =====
+        if (matchedAgents.some(a => a.id === 'ai-chatbots')) {
+            tests.push({
+                agent: 'ai-chatbots',
+                name: '聊天组件',
+                check: 'Chat Widget',
+                passed: !!features.hasChatWidget,
+                expected: '有聊天组件',
+                actual: features.hasChatWidget ? '✓' : '✗'
+            });
         }
 
         return tests;
+    }
+
+    /**
+     * 多 Agent 并行分析（用于 LLM 调用）
+     */
+    async analyzeWithMultipleAgents(pageData, agents = null) {
+        const selectedAgents = agents || this.classifyPage(pageData);
+        const results = [];
+
+        for (const agent of selectedAgents) {
+            const prompt = this.buildPrompt(agent.id, pageData);
+            if (prompt) {
+                results.push({
+                    agent: agent.id,
+                    agentName: agent.name,
+                    prompt,
+                    pageData: {
+                        url: pageData.url,
+                        title: pageData.title,
+                        features: pageData.features,
+                        consoleLogs: pageData.consoleLogs
+                    }
+                });
+            }
+        }
+
+        return results;
     }
 }
 

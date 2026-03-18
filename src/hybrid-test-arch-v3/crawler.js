@@ -145,18 +145,55 @@ class PageCrawler {
         try {
             const features = await page.evaluate(() => {
                 const bodyText = document.body ? document.body.textContent : '';
+                const html = document.documentElement.outerHTML || '';
                 return {
-                    hasForm: document.querySelectorAll('form').length > 0,
+                    // 基础特征
+                    hasNavigation: document.querySelectorAll('nav, .nav, .menu, [role="navigation"]').length > 0,
+                    hasBanner: document.querySelectorAll('.banner, .carousel, .hero, .slider, .swiper').length > 0,
+                    isSPA: !!(window.__NEXT_DATA__ || window.__NUXT__ || document.querySelector('[id="app"], [id="root"]')),
+
+                    // 表单相关
+                    hasForms: document.querySelectorAll('form').length > 0,
+                    hasInputs: document.querySelectorAll('input, textarea, select').length > 0,
                     hasLoginForm: document.querySelectorAll('input[type="password"]').length > 0,
-                    hasProductCards: document.querySelectorAll('.product, .item, .goods, .card').length > 0,
+                    hasContactForm: !!(document.querySelector('form') &&
+                        (bodyText.includes('联系') || bodyText.includes('Contact') || bodyText.includes('Message'))),
+
+                    // 电商相关
+                    hasProductCards: document.querySelectorAll('.product, .item, .goods, .card, [class*="product"]').length > 3,
                     hasPrice: document.querySelectorAll('.price, .amount, [class*="price"]').length > 0,
-                    hasNavigation: document.querySelectorAll('nav, .nav, .menu').length > 0,
-                    hasBanner: document.querySelectorAll('.banner, .carousel, .hero').length > 0,
-                    hasArticle: document.querySelectorAll('article, .post, .blog').length > 0,
-                    hasContact: bodyText.includes('联系') || bodyText.includes('电话') || bodyText.includes('Contact'),
+                    hasAddToCart: !!(document.querySelector('[class*="add-to-cart"], [class*="addtocart"], .buy-btn, .add-cart') ||
+                        bodyText.match(/加入购物车|Add to Cart|Buy Now/i)),
+                    hasShoppingCart: !!(document.querySelector('[class*="cart"], .shopping-cart') ||
+                        bodyText.match(/购物车|Shopping Cart|My Cart/i)),
+
+                    // 搜索相关
+                    hasSearchBox: document.querySelectorAll('input[type="search"], [role="search"], .search-input, [class*="search"]').length > 0,
+
+                    // 内容相关
+                    hasArticle: document.querySelectorAll('article, .post, .blog, .article, [class*="article"]').length > 0,
+                    hasVideo: document.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]').length > 0,
+
+                    // 社交相关
+                    hasChatWidget: !!(document.querySelector('[class*="chat-widget"], [class*="chatbot"], [class*="intercom"], [class*="crisp"], [class*="tawk"]') ||
+                        document.querySelector('iframe[src*="chat"]')),
+                    hasAvatar: document.querySelectorAll('.avatar, [class*="avatar"], .profile-pic, [class*="profile"]').length > 0,
+
+                    // 合规相关
+                    hasCookieBanner: !!(document.querySelector('[class*="cookie"], [class*="consent"], [class*="gdpr"], [id*="cookie"]') ||
+                        bodyText.match(/cookie|Cookie 政策|接受 Cookie|Accept Cookies/i)),
+                    hasLanguageSwitcher: document.querySelectorAll('[class*="lang"], [class*="locale"], .language-selector').length > 0,
+
+                    // CTA
+                    hasCTA: document.querySelectorAll('.cta, [class*="call-to-action"], .hero-btn, .primary-btn').length > 0,
+
+                    // 日期选择器
+                    hasDatePicker: document.querySelectorAll('input[type="date"], [class*="datepicker"], [class*="calendar"]').length > 0,
+
+                    // 页面内容关键词
                     hasAbout: bodyText.includes('关于') || bodyText.includes('简介') || bodyText.includes('About'),
+                    hasContact: bodyText.includes('联系') || bodyText.includes('电话') || bodyText.includes('Contact'),
                     hasLogin: bodyText.includes('登录') || bodyText.includes('注册') || bodyText.includes('Login'),
-                    isSPA: !!window.__NEXT_DATA__
                 };
             });
 

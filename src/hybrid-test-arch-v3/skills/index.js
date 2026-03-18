@@ -1,6 +1,6 @@
 /**
- * Hybrid Test v3.0 - OpenClaw 技能入口
- * 核心改进：爬取与分析完全分离
+ * Hybrid Test v3.1 - OpenClaw 技能入口
+ * 核心改进：33 个 OpenTestAI Agent + 动态页面类型识别
  */
 
 const PageCrawler = require('../crawler');
@@ -14,7 +14,7 @@ const path = require('path');
 const fs = require('fs');
 
 /**
- * 创建测试会话（仅爬取）
+ * 创建测试会话
  */
 async function createSession(options = {}) {
     const {
@@ -29,7 +29,7 @@ async function createSession(options = {}) {
         throw new Error('缺少必需参数：url');
     }
 
-    console.log('🧪 创建测试会话 v3.0...');
+    console.log('🧪 创建测试会话 v3.1（动态 Agent 识别）...');
     console.log(`📄 起始 URL: ${url}`);
     console.log(`📊 最大页面：${maxPages}`);
     console.log(`💾 保存目录：${saveDir}`);
@@ -38,6 +38,7 @@ async function createSession(options = {}) {
     const sessionId = crypto.createHash('md5').update(`${url}-${Date.now()}`).digest('hex').substring(0, 8);
     const storage = new DataStorage(saveDir);
     const crawler = new PageCrawler({ baseUrl: url, maxPages, timeout, viewport });
+    const analyzer = new PageAnalyzer();
 
     try {
         // 启动浏览器
@@ -63,8 +64,7 @@ async function createSession(options = {}) {
 
             if (result.status === 200) {
                 console.log(`      ✅ 加载：${result.loadTime}ms, 链接：${result.links.length}`);
-                
-                // 添加新链接到队列
+
                 result.links.forEach(link => {
                     if (!visited.has(link) && !toVisit.includes(link)) {
                         toVisit.push(link);
@@ -74,6 +74,9 @@ async function createSession(options = {}) {
                 console.log(`      ❌ 失败：${result.error || result.status}`);
             }
         }
+
+        // 关闭浏览器
+        await crawler.close();
 
         // 保存会话数据
         console.log('\n💾 Step 3: 保存会话数据...\n');
@@ -93,74 +96,94 @@ async function createSession(options = {}) {
         console.log(`   爬取页面：${pages.length}`);
         console.log(`   成功页面：${pages.filter(p => p.status === 200).length}`);
         console.log(`   失败页面：${pages.filter(p => p.status !== 200).length}`);
-        console.log('\n💡 下一步：使用 analyze() 添加 Agent 分析');
-        console.log(`   示例：await testSession.analyze(['mia', 'sophia'])\n`);
+        console.log('');
 
         return {
             sessionId,
             baseUrl: url,
             pagesCount: pages.length,
             storage,
-            
+
             /**
-             * 添加 Agent 分析
+             * 动态 Agent 分析
+             * @param {Array} agents - 可选，指定 Agent ID 列表。为空则自动识别
+             * @param {Object} options - useLLM, llmProvider, llmApiKey
              */
-            analyze: async (agents = [], options = {}) => {
+            analyze: async (agents = [], analyzeOptions = {}) => {
                 const {
                     useLLM = false,
-                    llmProvider = 'openai',
+                    llmProvider = 'bailian',
                     llmApiKey = process.env.LLM_API_KEY
-                } = options;
+                } = analyzeOptions;
 
-                console.log(`\n🤖 添加 Agent 分析：${agents.join(', ')}`);
-                
-                // 加载页面数据
                 const session = await storage.loadSession(sessionId);
-                const analyzer = new PageAnalyzer({ agents });
-                
-                const analysisResults = [];
                 const updatedPages = [];
-                
-                // 为每个页面生成测试用例
+                const analysisResults = [];
+                const agentStats = {};  // 统计每个 Agent 被调用的次数
+
+                console.log('\n🤖 Step 4: 动态 Agent 分析...\n');
+
                 for (const page of session.pages) {
-                    if (page.status === 200) {
-                        // 生成测试用例
-                        const tests = analyzer.generateTestCases(page);
-                        
-                        updatedPages.push({
-                            ...page,
-                            tests,
-                            testsPassed: tests.filter(t => t.passed).length,
-                            testsTotal: tests.length
-                        });
-                        
-                        console.log(`   📄 ${page.url.substring(0, 50)}... - 测试：${tests.filter(t => t.passed).length}/${tests.length}`);
-                    } else {
+                    if (page.status !== 200) {
                         updatedPages.push(page);
+                        continue;
                     }
-                }
-                
-                // 使用 LLM 分析（可选）
-                if (useLLM && llmApiKey) {
-                    const llm = new LLMIntegration({
-                        provider: llmProvider,
-                        apiKey: llmApiKey
+
+                    // 动态识别页面类型，匹配 Agent
+                    const matchedAgents = analyzer.classifyPage(page);
+                    const agentNames = matchedAgents.map(a => a.id);
+
+                    // 统计
+                    for (const a of matchedAgents) {
+                        agentStats[a.id] = (agentStats[a.id] || 0) + 1;
+                    }
+
+                    // 生成动态测试用例
+                    const tests = analyzer.generateTestCases(page, matchedAgents);
+                    const passed = tests.filter(t => t.passed).length;
+
+                    updatedPages.push({
+                        ...page,
+                        matchedAgents: agentNames,
+                        tests,
+                        testsPassed: passed,
+                        testsTotal: tests.length
                     });
-                    
-                    for (const page of updatedPages) {
-                        if (page.status === 200) {
-                            const llmResults = await llm.analyzeMultipleAgents(
-                                page,
-                                agents,
-                                analyzer.prompts
-                            );
-                            analysisResults.push(...llmResults);
+
+                    const shortUrl = page.url.length > 55 ? page.url.substring(0, 55) + '...' : page.url;
+                    console.log(`   📄 ${shortUrl}`);
+                    console.log(`      🎯 匹配 Agent: ${agentNames.join(', ')}`);
+                    console.log(`      📋 测试用例：${passed}/${tests.length}`);
+
+                    // LLM 深度分析（可选）
+                    if (useLLM && llmApiKey) {
+                        const llm = new LLMIntegration({
+                            provider: llmProvider,
+                            apiKey: llmApiKey
+                        });
+
+                        for (const agent of matchedAgents) {
+                            const prompt = analyzer.buildPrompt(agent.id, page);
+                            if (prompt) {
+                                try {
+                                    const llmResult = await llm.analyze(prompt, page);
+                                    analysisResults.push({
+                                        agent: agent.id,
+                                        url: page.url,
+                                        llmAnalysis: llmResult
+                                    });
+                                } catch (e) {
+                                    console.log(`      ⚠️ LLM 分析失败 (${agent.id}): ${e.message}`);
+                                }
+                            }
                         }
                     }
                 }
-                
-                // 保存更新后的页面数据（包含测试用例）
+
+                // 保存更新后的页面数据
                 const pagesDir = path.join(storage.baseDir, sessionId, 'pages');
+                if (!fs.existsSync(pagesDir)) fs.mkdirSync(pagesDir, { recursive: true });
+
                 for (const [index, page] of updatedPages.entries()) {
                     const pagePath = path.join(pagesDir, `page-${index}.json`);
                     const pageData = {
@@ -173,62 +196,67 @@ async function createSession(options = {}) {
                         links: page.links,
                         screenshot: page.screenshot ? page.screenshot.toString('base64') : null,
                         html: page.html,
+                        matchedAgents: page.matchedAgents,
                         tests: page.tests,
                         testsPassed: page.testsPassed,
                         testsTotal: page.testsTotal
                     };
                     fs.writeFileSync(pagePath, JSON.stringify(pageData, null, 2));
                 }
-                
+
                 // 保存分析结果
-                for (const agent of agents) {
-                    await storage.saveAnalysis(sessionId, agent, analysisResults);
+                const allAgentIds = [...new Set(updatedPages.flatMap(p => p.matchedAgents || []))];
+                for (const agentId of allAgentIds) {
+                    await storage.saveAnalysis(sessionId, agentId, analysisResults.filter(r => r.agent === agentId));
                 }
-                
-                console.log(`✅ 分析完成，测试用例已保存`);
+
+                // 打印 Agent 统计
+                console.log('\n📊 Agent 调用统计:');
+                const sorted = Object.entries(agentStats).sort((a, b) => b[1] - a[1]);
+                for (const [id, count] of sorted) {
+                    console.log(`   ${id}: ${count} 页`);
+                }
+
+                const totalTests = updatedPages.reduce((sum, p) => sum + (p.testsTotal || 0), 0);
+                const totalPassed = updatedPages.reduce((sum, p) => sum + (p.testsPassed || 0), 0);
+                console.log(`\n✅ 分析完成！共 ${totalTests} 个测试用例，通过 ${totalPassed}/${totalTests}`);
+
                 return updatedPages;
             },
 
             /**
              * 生成报告
              */
-            report: async (options = {}) => {
+            report: async (reportOptions = {}) => {
                 const {
                     format = ['html'],
                     outputDir = './reports'
-                } = options;
+                } = reportOptions;
 
                 console.log(`\n📄 生成报告...`);
-                
-                // 重新加载页面数据（包含测试用例）
+
                 const session = await storage.loadSession(sessionId);
                 const analysisResults = await storage.loadAnalysis(sessionId);
-                
-                // 去重和聚合
+
                 const deduplicator = new ResultDeduplicator();
                 const allIssues = [];
-                
-                // 收集所有问题
+
                 for (const result of analysisResults) {
                     if (result.llmAnalysis) {
                         allIssues.push(...result.llmAnalysis);
                     }
                 }
-                
+
                 const dedupedIssues = deduplicator.deduplicate(allIssues);
                 const issueStats = deduplicator.generateStats(dedupedIssues);
-                
-                // 从分析结果文件名提取 Agent 名称
-                const analysisDir = path.join(storage.baseDir, sessionId, 'analysis');
-                let uniqueAgents = [];
-                if (fs.existsSync(analysisDir)) {
-                    const files = fs.readdirSync(analysisDir).filter(f => f.endsWith('.json'));
-                    uniqueAgents = Array.from(new Set(files.map(f => {
-                        const match = f.match(/^([^-]+)-\d+\.json$/);
-                        return match ? match[1] : null;
-                    }).filter(Boolean)));
-                }
-                
+
+                // 收集所有参与的 Agent
+                const allAgents = [...new Set(
+                    session.pages
+                        .filter(p => p.matchedAgents)
+                        .flatMap(p => p.matchedAgents)
+                )];
+
                 const results = {
                     timestamp: session.timestamp,
                     baseUrl: session.baseUrl,
@@ -237,24 +265,22 @@ async function createSession(options = {}) {
                         successPages: session.pages.filter(p => p.status === 200).length,
                         failedPages: session.pages.filter(p => p.status !== 200).length,
                         totalIssues: dedupedIssues.length,
-                        llmIssues: dedupedIssues.length
+                        totalAgents: allAgents.length
                     },
                     pages: session.pages,
                     issues: dedupedIssues,
-                    agents: uniqueAgents,
+                    agents: allAgents,
                     issueStats
                 };
 
                 const reportPaths = {};
 
-                // 生成 HTML 报告
                 if (format.includes('html')) {
                     const HTMLReporter = require('../html-reporter');
                     const reporter = new HTMLReporter();
                     reportPaths.html = await reporter.generate(results, outputDir);
                 }
 
-                // 生成 PDF 报告
                 if (format.includes('pdf')) {
                     const pdfExporter = new PDFExporter();
                     const pdfPath = `${outputDir}/report-${sessionId}.pdf`;
@@ -268,9 +294,6 @@ async function createSession(options = {}) {
                 return reportPaths;
             },
 
-            /**
-             * 清理会话
-             */
             cleanup: async () => {
                 storage.deleteSession(sessionId);
                 console.log(`🗑️ 会话已清理：${sessionId}`);
@@ -285,25 +308,16 @@ async function createSession(options = {}) {
 }
 
 /**
- * 快速测试（兼容 v2.0 API）
+ * 快速测试
  */
 async function execute(options = {}) {
-    const {
-        url,
-        maxPages = 30,
-        agents = ['mia', 'sophia', 'tariq'],
-        saveDir = './test-data',
-        exportPDF = true
-    } = options;
+    const { url, maxPages = 30, saveDir = './test-data', exportPDF = true } = options;
 
     const session = await createSession({ url, maxPages, saveDir });
-    await session.analyze(agents);
-    const reportPaths = await session.report({ format: ['html', 'pdf'], exportPDF });
-    
+    await session.analyze();  // 自动识别 Agent
+    const reportPaths = await session.report({ format: ['html', exportPDF ? 'pdf' : null].filter(Boolean) });
+
     return { session, reportPaths };
 }
 
-module.exports = {
-    createSession,
-    execute
-};
+module.exports = { createSession, execute };
