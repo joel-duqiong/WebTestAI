@@ -347,9 +347,9 @@ class HTMLReporter {
                                                 </div>
                                             `).join('')}
                                         </div>
-                                        ${page.screenshot ? `
+                                        ${page.screenshot && typeof page.screenshot === 'string' && page.screenshot.length > 1000 ? `
                                             <div class="screenshot-container">
-                                                <img src="data:image/png;base64,${page.screenshot}" alt="Screenshot" style="max-width: 100%; height: auto;">
+                                                <img src="data:image/png;base64,${page.screenshot.replace(/[\r\n\s]/g, '')}" alt="Screenshot" style="max-width: 100%; height: auto; display: block;">
                                                 <div class="screenshot-caption">📸 页面截图 - ${this.escapeHtml(page.title || '无标题')}</div>
                                             </div>
                                         ` : ''}

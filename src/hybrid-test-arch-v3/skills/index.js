@@ -40,6 +40,8 @@ async function createSession(options = {}) {
     const crawler = new PageCrawler({ baseUrl: url, maxPages, timeout, viewport });
     const analyzer = new PageAnalyzer();
 
+    const testStartTime = new Date();  // 记录测试开始时间
+
     try {
         // 启动浏览器
         console.log('🕷️  Step 1: 启动浏览器...');
@@ -188,21 +190,19 @@ async function createSession(options = {}) {
                     const pagePath = path.join(pagesDir, `page-${index}.json`);
                     const pageData = {
                         url: page.url,
-                        title: page.title,
+                        title: page.title || '',  // 确保 title 存在
                         loadTime: page.loadTime,
                         status: page.status,
                         features: page.features,
                         consoleLogs: page.consoleLogs,
                         links: page.links,
-                        screenshot: page.screenshot ? page.screenshot.toString('base64') : null,
-                        // 不保存完整 HTML（太大且会破坏报告），只保存文本内容
-                        content: page.content ? page.content.substring(0, 5000) : null,
+                        screenshot: page.screenshot && Buffer.isBuffer(page.screenshot) ? page.screenshot.toString('base64') : (page.screenshot || null),
                         matchedAgents: page.matchedAgents,
                         tests: page.tests,
                         testsPassed: page.testsPassed,
                         testsTotal: page.testsTotal
                     };
-                    fs.writeFileSync(pagePath, JSON.stringify(pageData, null, 2));
+                    fs.writeFileSync(pagePath, JSON.stringify(pageData, null, 2), 'utf8');
                 }
 
                 // 保存分析结果
@@ -258,6 +258,8 @@ async function createSession(options = {}) {
                         .flatMap(p => p.matchedAgents)
                 )];
 
+                const testEndTime = new Date();  // 记录测试结束时间
+
                 const results = {
                     timestamp: session.timestamp,
                     baseUrl: session.baseUrl,
@@ -270,7 +272,8 @@ async function createSession(options = {}) {
                     },
                     pages: session.pages.map(p => ({
                         ...p,
-                        html: undefined  // 移除完整 HTML，避免破坏报告
+                        html: undefined,  // 移除完整 HTML
+                        content: undefined  // 移除 content（避免破坏报告）
                     })),
                     issues: dedupedIssues,
                     agents: allAgents,
@@ -280,8 +283,8 @@ async function createSession(options = {}) {
                 const reportPaths = {};
 
                 // 添加测试时间
-                results.testStartTime = session.timestamp;
-                results.testEndTime = new Date().toISOString();
+                results.testStartTime = testStartTime.toISOString();
+                results.testEndTime = testEndTime.toISOString();
 
                 if (format.includes('html')) {
                     const HTMLReporter = require('../html-reporter');
