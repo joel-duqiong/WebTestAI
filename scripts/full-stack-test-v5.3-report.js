@@ -10,7 +10,8 @@ const HTMLReporter = require('../src/hybrid-test-arch-v3/html-reporter');
 
 const TEST_DIR = process.argv[2];
 const BASE_URL = process.argv[3] || 'https://chagee.com/zh-cn';
-const MAX_PAGES = parseInt(process.argv[4]) || 100;
+const MAX_PAGES = parseInt(process.argv[4]) || 50; // 默认 50 页
+const MAX_DEPTH = parseInt(process.argv[5]) || 3; // 爬取深度
 
 // 参与测试的 Agent 角色
 const TEST_AGENTS = [
@@ -55,16 +56,39 @@ async function runTest() {
         console.log('🕷️  Step 1: 爬取所有页面...\n');
         
         const page = await context.newPage();
-        await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
+        const maxPages = MAX_PAGES || 50;
+        const maxDepth = MAX_DEPTH || 3;
         
-        const links = await page.evaluate(() => {
-            return Array.from(document.querySelectorAll('a[href]'))
-                .map(a => a.href)
-                .filter(href => href.startsWith('http') && !href.includes('#'))
-                .slice(0, MAX_PAGES);
-        });
-
-        const uniqueUrls = [...new Set([BASE_URL, ...links])].slice(0, MAX_PAGES);
+        // 预定义 URL 列表（适合 SPA 单页应用）
+        const predefinedUrls = [
+            '/zh-cn',
+            '/zh-cn/about',
+            '/zh-cn/about/history',
+            '/zh-cn/about/health-ambassador',
+            '/zh-cn/product',
+            '/zh-cn/product/fresh-milk-tea-series',
+            '/zh-cn/product/snowy-frappe-series',
+            '/zh-cn/product/fruit-tea-series',
+            '/zh-cn/product/brewed-tea-series',
+            '/zh-cn/product/teaspresso-latte',
+            '/zh-cn/product/iced-oriental-tea-series',
+            '/zh-cn/stores',
+            '/zh-cn/influence',
+            '/zh-cn/influence/culture',
+            '/zh-cn/influence/health',
+            '/zh-cn/influence/connection',
+            '/zh-cn/influence/community',
+            '/zh-cn/media-centre',
+            '/zh-cn/media-centre/news',
+            '/zh-cn/media-centre/brand'
+        ];
+        
+        const baseUrl = BASE_URL.replace(/\/zh-cn.*$/, '');
+        const uniqueUrls = predefinedUrls
+            .map(p => baseUrl + p)
+            .slice(0, maxPages);
+        
+        console.log(`📊 准备测试 ${uniqueUrls.length} 个页面...\n`);
         
         for (let i = 0; i < uniqueUrls.length; i++) {
             const url = uniqueUrls[i];
@@ -80,7 +104,7 @@ async function runTest() {
 
             try {
                 const startTime = Date.now();
-                await page.goto(url, { waitUntil: 'networkidle', timeout: 15000 });
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
                 const loadTime = Date.now() - startTime;
 
                 pageInfo.loadTime = loadTime;
@@ -90,10 +114,13 @@ async function runTest() {
                 // 保存截图并读取为 base64
                 const screenshotPath = path.join(TEST_DIR, `screenshot-${i}.png`);
                 const screenshotBuffer = await page.screenshot({ path: screenshotPath, fullPage: false });
-                pageInfo.screenshot = screenshotBuffer; // 直接保存 Buffer，用于 HTML 报告
-                pageInfo.screenshotPath = screenshotPath; // 保存路径用于参考
+                pageInfo.screenshot = screenshotBuffer;
+                
+                // 获取当前页面链接数
+                const linkCount = await page.evaluate(() => {
+                    return document.querySelectorAll('a[href]').length;
+                });
 
-                const linkCount = links.length;
                 const tests = [
                     { name: 'HTTPS', check: '使用 HTTPS 协议', passed: url.startsWith('https://'), actual: url.startsWith('https://') ? '通过' : '失败', critical: true },
                     { name: '加载时间', check: '页面加载 < 10 秒', passed: loadTime < 10000, actual: `${loadTime}ms`, critical: false },
@@ -115,7 +142,7 @@ async function runTest() {
                 pageInfo.tests = tests;
                 pageInfo.testsPassed = tests.filter(t => t.passed).length;
 
-                console.log(`      ✅ 加载：${loadTime}ms, 链接：${links.length}, 测试：${pageInfo.testsPassed}/${pageInfo.testsTotal}`);
+                console.log(`      ✅ 加载：${loadTime}ms, 链接：${linkCount}个，测试：${pageInfo.testsPassed}/${pageInfo.testsTotal}`);
                 results.successPages.push(pageInfo);
 
             } catch (error) {

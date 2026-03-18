@@ -10,13 +10,19 @@ class HTMLReporter {
     constructor() {
         this.outputDir = './reports';
         this.agentDescriptions = {
-            mia: { name: 'Mia', specialty: 'UI/UX 与表单', icon: '👁️' },
-            sophia: { name: 'Sophia', specialty: '无障碍访问', icon: '♿' },
-            tariq: { name: 'Tariq', specialty: '安全与 OWASP', icon: '🔒' },
-            leila: { name: 'Leila', specialty: '内容质量', icon: '📝' },
-            viktor: { name: 'Viktor', specialty: '性能优化', icon: '⚡' },
-            zanele: { name: 'Zanele', specialty: '移动端', icon: '📱' },
-            pete: { name: 'Pete', specialty: 'AI 聊天机器人', icon: '🤖' }
+            // OpenTestAI Agents
+            mia: { name: 'Mia', specialty: 'UI/UX 与表单专家', icon: '👁️' },
+            sophia: { name: 'Sophia', specialty: '无障碍访问专家', icon: '♿' },
+            tariq: { name: 'Tariq', specialty: '安全与 OWASP 专家', icon: '🔒' },
+            leila: { name: 'Leila', specialty: '内容质量专家', icon: '📝' },
+            viktor: { name: 'Viktor', specialty: '性能优化专家', icon: '⚡' },
+            zanele: { name: 'Zanele', specialty: '移动端专家', icon: '📱' },
+            pete: { name: 'Pete', specialty: 'AI 聊天机器人专家', icon: '🤖' },
+            // 基础测试 Agents
+            crawler: { name: '爬虫 Agent', specialty: '页面发现与链接收集', icon: '🕷️' },
+            visual: { name: '视觉 Agent', specialty: '页面截图与 UI 检查', icon: '👁️' },
+            security: { name: '安全 Agent', specialty: 'HTTPS 与表单安全检查', icon: '🔒' },
+            content: { name: '内容 Agent', specialty: '页面内容与 SEO 检查', icon: '📝' }
         };
     }
 
