@@ -329,17 +329,20 @@ class HTMLReporter {
                             <tr id="details-${index}" class="details-row" style="display: ${index === 0 ? 'table-row' : 'none'};">
                                 <td colspan="7">
                                     <div class="details-content">
+                                        <h3 style="margin: 0 0 16px 0; font-size: 14px; color: var(--text); display: flex; align-items: center; gap: 8px;">
+                                            <span>📋</span> 测试用例详情
+                                        </h3>
                                         <div style="margin-bottom: 16px; color: var(--muted); font-size: 13px;">
                                             <strong>匹配 Agent:</strong> ${(page.matchedAgents || []).map(id => this.getAgentInfo(id).name).join(', ')}
                                         </div>
-                                        <div class="test-list">
+                                        <div class="test-list" style="display: flex; flex-direction: column; gap: 8px;">
                                             ${page.tests.map(test => `
-                                                <div class="test-item ${test.passed ? 'passed' : 'failed'}">
-                                                    <div>
-                                                        <div class="name">${this.escapeHtml(test.name)}</div>
-                                                        <div class="check">${this.escapeHtml(test.check)}</div>
+                                                <div class="test-item ${test.passed ? 'passed' : 'failed'}" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 12px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; border-left: 3px solid ${test.passed ? 'var(--success)' : 'var(--error)'}; align-items: center;">
+                                                    <div style="font-weight: 500; font-size: 13px;">${this.escapeHtml(test.name)}</div>
+                                                    <div style="color: var(--muted); font-size: 13px; text-align: center;">: ${this.escapeHtml(test.check)}</div>
+                                                    <div style="text-align: right; font-weight: 600; font-size: 13px; color: ${test.passed ? 'var(--success)' : 'var(--error)'};">
+                                                        ${test.passed ? '✅' : '❌'} ${this.escapeHtml(test.actual)}
                                                     </div>
-                                                    <div class="result">${test.passed ? '✓' : '✗'} ${this.escapeHtml(test.actual)}</div>
                                                 </div>
                                             `).join('')}
                                         </div>
