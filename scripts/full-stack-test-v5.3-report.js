@@ -137,13 +137,36 @@ async function runTest() {
                 const loadTime = Date.now() - startTime;
 
                 pageInfo.loadTime = loadTime;
-                pageInfo.status = response ? response.status() : 200;
+                const httpStatus = response ? response.status() : 200;
+                pageInfo.status = httpStatus;
                 
-                // 检查是否是错误页面
+                // 检查是否是错误页面（405/404/500 等）
                 const pageTitle = await page.title();
-                if (pageTitle === '405' || pageTitle === '404' || pageTitle === '500' || pageTitle.includes('Access Denied')) {
-                    pageInfo.title = `错误：${pageTitle}`;
+                const isErrorTitle = pageTitle === '405' || pageTitle === '404' || pageTitle === '500' || pageTitle.includes('Access Denied');
+                const isHttpError = httpStatus >= 400;
+                
+                if (isHttpError || isErrorTitle) {
+                    pageInfo.title = `错误：${pageTitle} (HTTP ${httpStatus})`;
                     pageInfo.isErrorPage = true;
+                    pageInfo.error = `HTTP ${httpStatus} - ${pageTitle}`;
+                    pageInfo.errorType = httpStatus === 405 ? '方法不允许' : httpStatus === 404 ? '页面不存在' : 'HTTP 错误';
+                    
+                    // 加入失败页面
+                    results.failedPages.push(pageInfo);
+                    results.issues.push({
+                        page: url,
+                        bug_title: `页面访问失败 - HTTP ${httpStatus}`,
+                        bug_type: ['Functional', pageInfo.errorType],
+                        bug_priority: 8,
+                        bug_confidence: 10,
+                        reproduction_steps: `1. 访问 ${url}\n2. 等待页面加载`,
+                        expected_result: '页面正常加载 (HTTP 200)',
+                        actual_result: `HTTP ${httpStatus} - ${pageTitle}`,
+                        suggested_fix: '网站可能有反爬虫机制，需要调整访问策略'
+                    });
+                    
+                    results.allPages.push(pageInfo);
+                    continue; // 跳过后续测试，但已加入 allPages
                 } else {
                     pageInfo.title = pageTitle;
                 }
@@ -165,7 +188,7 @@ async function runTest() {
                     { name: '页面链接', check: '有内部链接', passed: linkCount >= 0, actual: `${linkCount} 个链接`, critical: false, warning: linkCount === 0 }, // 0 个链接只是警告，不失败
                     { name: '页面截图', check: '截图成功', passed: !!pageInfo.screenshot, actual: pageInfo.screenshot ? '已截图' : '无截图', critical: false },
                     { name: '移动端适配', check: 'viewport 正确', passed: true, actual: '1280x800', critical: false },
-                    { name: '页面可访问', check: 'HTTP 状态正常', passed: pageInfo.status === 200, actual: `HTTP ${pageInfo.status}`, critical: true },
+                    { name: '页面可访问', check: 'HTTP 状态正常', passed: httpStatus === 200, actual: `HTTP ${httpStatus}`, critical: true },
                     { name: '页面内容', check: '有 HTML 内容', passed: true, actual: '正常', critical: false }
                 ];
                 
@@ -179,8 +202,10 @@ async function runTest() {
                 pageInfo.tests = tests;
                 pageInfo.testsPassed = tests.filter(t => t.passed).length;
 
-                console.log(`      ✅ 加载：${loadTime}ms, 链接：${linkCount}个，测试：${pageInfo.testsPassed}/${pageInfo.testsTotal}`);
-                results.successPages.push(pageInfo);
+                console.log(`      ${pageInfo.status === 200 ? '✅' : '⚠️'} 加载：${loadTime}ms, 链接：${linkCount}个，测试：${pageInfo.testsPassed}/${pageInfo.testsTotal}`);
+                if (pageInfo.status === 200) {
+                    results.successPages.push(pageInfo);
+                }
 
             } catch (error) {
                 console.log(`      ❌ 失败：${error.message}`);
@@ -238,7 +263,7 @@ async function runTest() {
     
     console.log('✅ 全栈测试完成！\n');
     console.log('📊 测试结果:');
-    console.log(`   爬取页面：${results.allPages.length}`);
+    console.log(`   总页面：${results.allPages.length}`);
     console.log(`   成功页面：${results.successPages.length}`);
     console.log(`   失败页面：${results.failedPages.length}`);
     console.log(`   发现问题：${results.issues.length}`);
