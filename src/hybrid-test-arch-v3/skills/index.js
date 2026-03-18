@@ -1,6 +1,18 @@
 /**
- * Hybrid Test v3.1 - OpenClaw 技能入口
- * 核心改进：33 个 OpenTestAI Agent + 动态页面类型识别
+ * @module HybridTestSkill
+ * @description Hybrid Test v3.1 - OpenClaw 技能入口
+ *
+ * 核心职责：
+ * 1. 作为 OpenClaw 技能对外暴露统一接口
+ * 2. 编排完整测试流程：爬取 → 分析 → 去重 → 报告 → PDF 导出
+ * 3. 封装 PageCrawler、PageAnalyzer、HTMLReporter 等组件
+ * 4. 支持 33 个 OpenTestAI Agent + 动态页面类型识别
+ *
+ * 对外接口：
+ * - execute(options): 执行完整测试流程
+ * - generateReport(results): 生成 HTML/PDF 报告
+ *
+ * @version 3.1
  */
 
 const PageCrawler = require('../crawler');

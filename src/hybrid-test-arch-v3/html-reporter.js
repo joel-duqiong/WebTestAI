@@ -1,11 +1,23 @@
 ﻿/**
- * HTML 报告生成器 - v3.1 (完整版)
- * 改进：显示 Agent 角色全名 + 测试开始/结束时间
+ * @module HTMLReporter
+ * @description HTML 报告生成器 - v3.1
+ *
+ * 核心职责：
+ * 1. 将测试结果转换为可视化 HTML 报告
+ * 2. 包含页面截图、问题卡片、测试统计、Agent 匹配详情
+ * 3. 显示 Agent 角色全名、测试时间、问题优先级
+ * 4. 支持内嵌 Base64 图片，生成独立 HTML 文件
+ *
+ * @version 3.1
  */
 
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * HTML 报告生成器
+ * @class HTMLReporter
+ */
 class HTMLReporter {
     constructor() {
         this.outputDir = './reports';

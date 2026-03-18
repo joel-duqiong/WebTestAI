@@ -1,11 +1,31 @@
 /**
- * 页面类型识别器 - 动态识别页面类型并分配对应测试 Agent
- * 基于 URL、DOM 特征、页面内容自动判断
+ * @module PageClassifier
+ * @description 页面类型识别器 - WebTestAI 的核心调度组件
+ *
+ * 负责根据 URL 模式、DOM 特征、页面内容自动识别页面类型，
+ * 并返回匹配的测试 Agent 列表。系统内置 33 个 Agent：
+ * - 页面类型 Agent（20个）：根据 URL 和 DOM 特征条件匹配
+ * - 通用 Agent（7个）：对所有页面生效或按条件触发
+ * - 合规/专项 Agent（6个）：按特定条件触发
+ *
+ * @version 3.1
  */
 
+/**
+ * 页面类型识别器类
+ * @class PageClassifier
+ */
 class PageClassifier {
+    /**
+     * 初始化识别器，注册 33 个 Agent 及其匹配规则
+     * @constructor
+     */
     constructor() {
-        // 33 个 OpenTestAI Agent 及其匹配规则
+        /**
+         * 33 个 OpenTestAI Agent 配置列表
+         * 每个 Agent 包含 id、name、prompt 文件名和 match 匹配函数
+         * @type {Array<{id: string, name: string, prompt: string, match?: Function, universal?: boolean}>}
+         */
         this.agents = [
             {
                 id: 'homepage',
@@ -140,7 +160,7 @@ class PageClassifier {
                 prompt: 'genai-code.md',
                 match: (page) => this.contentMatch(page, /ai-generated|copilot|code-generation|playground/i)
             },
-            // ===== 以下为通用 Agent，根据页面特征始终/条件性启用 =====
+            // ===== 以下为通用 Agent（7个），根据页面特征始终/条件性启用 =====
             {
                 id: 'ui-ux-forms',
                 name: 'UI/UX 表单测试员 (Mia)',
@@ -185,8 +205,8 @@ class PageClassifier {
                 match: (page) => page.consoleLogs && page.consoleLogs.length > 0,
                 universal: false
             },
+            // ===== 以下为合规/专项 Agent（6个），按特定条件触发 =====
             {
-                id: 'privacy-cookie-consent',
                 name: '隐私/Cookie 测试员',
                 prompt: 'privacy-cookie-consent.md',
                 match: (page) => this.hasFeature(page, 'hasCookieBanner') ||
@@ -229,15 +249,16 @@ class PageClassifier {
 
     /**
      * 识别页面类型，返回匹配的 Agent 列表
-     * @param {Object} pageData - 爬取的页面数据
-     * @returns {Array} 匹配的 Agent 列表 [{id, name, prompt}, ...]
+     * 遍历所有 Agent，通用 Agent 直接加入，其他 Agent 根据 match 函数判断
+     * @param {Object} pageData - 爬取的页面数据（包含 url、features、html、content 等）
+     * @returns {Array<{id: string, name: string, prompt: string}>} 匹配的 Agent 列表
      */
     classify(pageData) {
         const matched = [];
-        const matchedIds = new Set();
+        const matchedIds = new Set(); // 用于去重，防止同一 Agent 重复加入
 
         for (const agent of this.agents) {
-            // 通用 Agent 始终加入
+            // 通用 Agent（universal: true）始终加入
             if (agent.universal) {
                 if (!matchedIds.has(agent.id)) {
                     matched.push(agent);
@@ -246,7 +267,7 @@ class PageClassifier {
                 continue;
             }
 
-            // 条件匹配
+            // 条件 Agent：调用 match 函数判断是否匹配当前页面
             if (agent.match && agent.match(pageData)) {
                 if (!matchedIds.has(agent.id)) {
                     matched.push(agent);
@@ -259,7 +280,8 @@ class PageClassifier {
     }
 
     /**
-     * 获取所有可用 Agent 列表
+     * 获取所有可用 Agent 列表（含 id、name、prompt、universal 属性）
+     * @returns {Array<{id: string, name: string, prompt: string, universal: boolean}>}
      */
     getAllAgents() {
         return this.agents.map(a => ({
@@ -272,21 +294,43 @@ class PageClassifier {
 
     // ===== 辅助匹配方法 =====
 
-    isHomepage(page) {
+    /**
+     * 判断是否为首页（根据 URL 路径判断）
+     * @param {Object} page - 页面数据
+     * @returns {boolean}
+     */
         const url = page.url || '';
         const path = new URL(url).pathname;
         return path === '/' || path === '' || path === '/index.html' || path === '/index.htm' ||
             /^\/?(home|首页|main[_-]?page)?\/?$/i.test(path);
     }
 
+    /**
+     * URL 正则匹配
+     * @param {Object} page - 页面数据
+     * @param {RegExp} regex - 匹配规则
+     * @returns {boolean}
+     */
     matchUrl(page, regex) {
         return regex.test(page.url || '');
     }
 
+    /**
+     * 检查页面是否具有指定 DOM 特征
+     * @param {Object} page - 页面数据
+     * @param {string} feature - 特征名（如 hasForms、hasSearchBox 等）
+     * @returns {boolean}
+     */
     hasFeature(page, feature) {
         return !!(page.features && page.features[feature]);
     }
 
+    /**
+     * 页面内容正则匹配（匹配 HTML 源码或文本内容）
+     * @param {Object} page - 页面数据
+     * @param {RegExp} regex - 匹配规则
+     * @returns {boolean}
+     */
     contentMatch(page, regex) {
         return regex.test(page.html || '') || regex.test(page.content || '');
     }

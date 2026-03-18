@@ -1,6 +1,14 @@
 /**
- * 混合测试架构 v3.1 - 智能分析层
- * 改进：支持 33 个 OpenTestAI Agent，动态匹配页面类型
+ * @module PageAnalyzer
+ * @description 混合测试架构 v3.1 - 智能分析层
+ *
+ * 核心职责：
+ * 1. 加载 33 个 Agent 的测试提示词（从 prompts/ 目录）
+ * 2. 调用 PageClassifier 识别页面类型，获取匹配的 Agent 列表
+ * 3. 根据匹配的 Agent 动态生成基础测试 + 专项测试用例
+ * 4. 构建 LLM 分析 prompt（用于可选的大模型深度分析）
+ *
+ * @version 3.1
  */
 
 const fs = require('fs');
@@ -8,16 +16,29 @@ const path = require('path');
 const crypto = require('crypto');
 const PageClassifier = require('./page-classifier');
 
+/**
+ * 页面智能分析器
+ * @class PageAnalyzer
+ */
 class PageAnalyzer {
+    /**
+     * 初始化分析器
+     * @param {Object} options - 配置选项
+     * @param {string} [options.promptsDir] - 提示词目录路径，默认为 ./prompts/
+     */
     constructor(options = {}) {
+        /** @type {string} 提示词文件目录 */
         this.promptsDir = options.promptsDir || path.join(__dirname, 'prompts');
+        /** @type {PageClassifier} 页面类型识别器实例 */
         this.classifier = new PageClassifier();
+        /** @type {Object<string, string>} 已加载的提示词缓存，key 为 Agent ID */
         this.prompts = {};
         this.loadAllPrompts();
     }
 
     /**
-     * 加载所有 prompt 文件
+     * 加载 prompts/ 目录下所有 .md 提示词文件到内存缓存
+     * 文件名（去掉 .md）作为 Agent ID
      */
     loadAllPrompts() {
         if (!fs.existsSync(this.promptsDir)) return;
@@ -32,14 +53,18 @@ class PageAnalyzer {
     }
 
     /**
-     * 获取 Agent 的 prompt
+     * 获取指定 Agent 的提示词内容
+     * @param {string} agentId - Agent 标识符
+     * @returns {string|null} 提示词内容，未找到返回 null
      */
     getPrompt(agentId) {
         return this.prompts[agentId] || null;
     }
 
     /**
-     * 识别页面类型，返回匹配的 Agent 列表
+     * 调用 PageClassifier 识别页面类型
+     * @param {Object} pageData - 爬取的页面数据
+     * @returns {Array} 匹配的 Agent 列表
      */
     classifyPage(pageData) {
         return this.classifier.classify(pageData);
@@ -47,6 +72,10 @@ class PageAnalyzer {
 
     /**
      * 构建 LLM 分析 prompt
+     * 将页面信息、DOM 特征、控制台日志和 Agent 提示词组合成完整的分析 prompt
+     * @param {string} agentId - Agent 标识符
+     * @param {Object} pageData - 页面数据（含 url、title、loadTime、status、features 等）
+     * @returns {string|null} 组装好的 prompt，Agent 无提示词时返回 null
      */
     buildPrompt(agentId, pageData) {
         const basePrompt = this.getPrompt(agentId);
@@ -88,13 +117,16 @@ ${basePrompt}
 
     /**
      * 为页面生成动态测试用例
-     * 根据匹配的 Agent 数量和类型动态生成
+     * 根据匹配的 Agent 数量和类型动态生成基础测试 + 专项测试
+     * @param {Object} pageData - 页面数据
+     * @param {Array} matchedAgents - 匹配的 Agent 列表
+     * @returns {Array} 测试用例列表，每个用例包含 agent、name、check、passed、expected、actual
      */
     generateTestCases(pageData, matchedAgents) {
         const tests = [];
         const features = pageData.features || {};
 
-        // ===== 基础测试（所有页面必测）=====
+        // ===== 基础测试（所有页面必测）：标题、内容、HTTP 状态 =====
         tests.push({
             agent: 'basic',
             name: '页面标题',
@@ -122,7 +154,7 @@ ${basePrompt}
             actual: String(pageData.status || '-')
         });
 
-        // ===== 性能测试 (Viktor) =====
+        // ===== 专项测试：性能 (Viktor) - 检查页面加载时间 =====
         if (matchedAgents.some(a => a.id === 'performance-core-web-vitals')) {
             tests.push({
                 agent: 'performance-core-web-vitals',
@@ -142,7 +174,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 无障碍测试 (Sophia) =====
+        // ===== 专项测试：无障碍 (Sophia) - 检查图片、导航 =====
         if (matchedAgents.some(a => a.id === 'accessibility')) {
             tests.push({
                 agent: 'accessibility',
@@ -162,7 +194,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 安全测试 (Tariq) =====
+        // ===== 专项测试：安全 (Tariq) - 检查 HTTPS、控制台错误 =====
         if (matchedAgents.some(a => a.id === 'security-owasp')) {
             const isHTTPS = (pageData.url || '').startsWith('https://');
             tests.push({
@@ -183,7 +215,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 内容测试 (Leila) =====
+        // ===== 专项测试：内容 (Leila) - 检查链接完整性 =====
         if (matchedAgents.some(a => a.id === 'content')) {
             tests.push({
                 agent: 'content',
@@ -195,7 +227,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 移动端测试 (Zanele) =====
+        // ===== 专项测试：移动端 (Zanele) - 检查交互元素 =====
         if (matchedAgents.some(a => a.id === 'mobile')) {
             tests.push({
                 agent: 'mobile',
@@ -207,7 +239,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 首页专项测试 =====
+        // ===== 页面类型专项测试：首页 =====
         if (matchedAgents.some(a => a.id === 'homepage')) {
             tests.push({
                 agent: 'homepage',
@@ -219,7 +251,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 搜索框测试 =====
+        // ===== 页面类型专项测试：搜索框 =====
         if (matchedAgents.some(a => a.id === 'search-box')) {
             tests.push({
                 agent: 'search-box',
@@ -231,7 +263,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 表单测试 (Mia) =====
+        // ===== 页面类型专项测试：表单 (Mia) =====
         if (matchedAgents.some(a => a.id === 'ui-ux-forms')) {
             tests.push({
                 agent: 'ui-ux-forms',
@@ -243,7 +275,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 电商测试 =====
+        // ===== 页面类型专项测试：电商（产品目录、详情） =====
         if (matchedAgents.some(a => a.id === 'product-catalog')) {
             tests.push({
                 agent: 'product-catalog',
@@ -266,7 +298,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 视频测试 =====
+        // ===== 页面类型专项测试：视频 =====
         if (matchedAgents.some(a => a.id === 'video')) {
             tests.push({
                 agent: 'video',
@@ -278,7 +310,7 @@ ${basePrompt}
             });
         }
 
-        // ===== Cookie/隐私测试 =====
+        // ===== 合规专项测试：Cookie/隐私 =====
         if (matchedAgents.some(a => a.id === 'privacy-cookie-consent')) {
             tests.push({
                 agent: 'privacy-cookie-consent',
@@ -290,7 +322,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 控制台日志测试 =====
+        // ===== 合规专项测试：控制台日志 =====
         if (matchedAgents.some(a => a.id === 'console-logs')) {
             const errors = (pageData.consoleLogs || []).filter(l => l.type === 'error');
             const warnings = (pageData.consoleLogs || []).filter(l => l.type === 'warning');
@@ -304,7 +336,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 国际化测试 =====
+        // ===== 合规专项测试：国际化 =====
         if (matchedAgents.some(a => a.id === 'i18n-localization')) {
             tests.push({
                 agent: 'i18n-localization',
@@ -316,7 +348,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 注册/登录测试 =====
+        // ===== 页面类型专项测试：注册/登录 =====
         if (matchedAgents.some(a => a.id === 'signup')) {
             tests.push({
                 agent: 'signup',
@@ -328,7 +360,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 系统错误测试 =====
+        // ===== 合规专项测试：系统错误 =====
         if (matchedAgents.some(a => a.id === 'system-errors')) {
             tests.push({
                 agent: 'system-errors',
@@ -340,7 +372,7 @@ ${basePrompt}
             });
         }
 
-        // ===== 新闻/文章测试 =====
+        // ===== 页面类型专项测试：新闻/文章 =====
         if (matchedAgents.some(a => a.id === 'news')) {
             tests.push({
                 agent: 'news',
@@ -352,7 +384,7 @@ ${basePrompt}
             });
         }
 
-        // ===== AI 聊天机器人测试 =====
+        // ===== 页面类型专项测试：AI 聊天机器人 =====
         if (matchedAgents.some(a => a.id === 'ai-chatbots')) {
             tests.push({
                 agent: 'ai-chatbots',
@@ -369,6 +401,10 @@ ${basePrompt}
 
     /**
      * 多 Agent 并行分析（用于 LLM 调用）
+     * 为每个匹配的 Agent 构建 prompt，返回可用于 LLM 分析的数据结构
+     * @param {Object} pageData - 页面数据
+     * @param {Array} [agents=null] - 指定的 Agent 列表，null 则自动识别
+     * @returns {Array} 每个 Agent 的分析配置（含 prompt、页面数据子集）
      */
     async analyzeWithMultipleAgents(pageData, agents = null) {
         const selectedAgents = agents || this.classifyPage(pageData);

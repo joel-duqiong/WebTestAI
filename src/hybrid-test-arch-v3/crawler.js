@@ -1,22 +1,53 @@
 /**
- * 混合测试架构 - 基础爬取层 (Playwright)
- * 负责：页面导航、链接收集、截图、DOM 抓取
+ * @module PageCrawler
+ * @description 混合测试架构 - 基础爬取层 (Playwright)
+ *
+ * 核心职责：
+ * 1. 启动/关闭 Playwright 浏览器实例
+ * 2. 爬取单个页面：导航、截图、提取 DOM 特征、收集链接
+ * 3. 批量爬取多个页面
+ * 4. 智能爬取：自动发现链接并递归爬取
+ *
+ * 提取的页面特征包括：导航、Banner、表单、搜索框、商品卡片、
+ * 视频、聊天组件、Cookie Banner、语言切换器等 20+ 种特征
+ *
+ * @version 3.0
  */
 
 const { chromium } = require('playwright');
 
+/**
+ * 页面爬取器
+ * @class PageCrawler
+ */
 class PageCrawler {
+    /**
+     * 初始化爬取器
+     * @param {Object} options - 配置选项
+     * @param {string} [options.baseUrl] - 目标网站基础 URL
+     * @param {number} [options.maxPages=50] - 最大爬取页面数
+     * @param {Object} [options.viewport] - 浏览器视口大小，默认 1280x800
+     * @param {number} [options.timeout=15000] - 页面加载超时时间（毫秒）
+     */
     constructor(options = {}) {
+        /** @type {string} 目标网站基础 URL */
         this.baseUrl = options.baseUrl || 'https://example.com';
+        /** @type {number} 最大爬取页面数 */
         this.maxPages = options.maxPages || 50;
+        /** @type {Object} 浏览器视口大小 {width, height} */
         this.viewport = options.viewport || { width: 1280, height: 800 };
+        /** @type {number} 页面加载超时时间（毫秒） */
         this.timeout = options.timeout || 15000;
+        /** @type {Browser|null} Playwright 浏览器实例 */
         this.browser = null;
+        /** @type {BrowserContext|null} 浏览器上下文 */
         this.context = null;
     }
 
     /**
-     * 启动浏览器
+     * 启动 Chromium 浏览器
+     * 配置 headless 模式、禁用沙盒、设置视口和 User-Agent
+     * @returns {PageCrawler} 返回自身实例（链式调用）
      */
     async launch() {
         this.browser = await chromium.launch({
@@ -33,7 +64,8 @@ class PageCrawler {
     }
 
     /**
-     * 关闭浏览器
+     * 关闭浏览器上下文和浏览器实例
+     * 释放资源
      */
     async close() {
         if (this.context) await this.context.close();
@@ -42,6 +74,9 @@ class PageCrawler {
 
     /**
      * 爬取单个页面
+     * 导航到指定 URL，收集页面信息、截图、提取 DOM 特征
+     * @param {string} url - 目标页面 URL
+     * @returns {Object} 页面爬取结果，包含 url、title、content、screenshot、features 等
      */
     async crawlPage(url) {
         const page = await this.context.newPage();
@@ -107,7 +142,11 @@ class PageCrawler {
     }
 
     /**
-     * 收集页面链接
+     * 收集页面中的同域名链接
+     * 在页面中执行 JavaScript，提取所有 <a href> 的绝对 URL
+     * @param {Page} page - Playwright Page 实例
+     * @param {string} baseUrl - 基础 URL（用于过滤同域名链接）
+     * @returns {Array<string>} 同域名链接列表
      */
     async collectLinks(page, baseUrl) {
         try {
@@ -139,7 +178,16 @@ class PageCrawler {
     }
 
     /**
-     * 分析页面特征
+     * 分析页面 DOM 特征
+     * 在页面中执行 JavaScript，检测 20+ 种特征：
+     * - 导航、Banner、SPA 框架
+     * - 表单、登录框、搜索框
+     * - 电商相关（商品卡片、价格、购物车）
+     * - 内容相关（文章、视频）
+     * - 社交相关（聊天组件、头像）
+     * - 合规相关（Cookie Banner、语言切换器）
+     * @param {Page} page - Playwright Page 实例
+     * @returns {Object} 特征检测结果，包含布尔值和计数
      */
     async analyzeFeatures(page) {
         try {
@@ -208,7 +256,11 @@ class PageCrawler {
     }
 
     /**
-     * 爬取多个页面
+     * 批量爬取多个页面
+     * 按顺序爬取 URL 列表，支持进度回调
+     * @param {Array<string>} urls - URL 列表
+     * @param {Function} [onProgress] - 进度回调函数，参数为 {current, total, url, result}
+     * @returns {Array<Object>} 所有页面的爬取结果
      */
     async crawlMultiplePages(urls, onProgress = null) {
         const results = [];
@@ -237,6 +289,11 @@ class PageCrawler {
 
     /**
      * 智能爬取（自动发现链接）
+     * 从起始 URL 开始，自动发现页面中的链接并递归爬取
+     * 使用队列管理待爬取 URL，自动去重，直到达到 maxPages 限制
+     * @param {string} startUrl - 起始 URL
+     * @param {Function} [onProgress] - 进度回调函数
+     * @returns {Array<Object>} 所有爬取页面的结果
      */
     async crawlSmart(startUrl, onProgress = null) {
         const visited = new Set();

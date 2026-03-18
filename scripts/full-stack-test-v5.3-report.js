@@ -1,7 +1,19 @@
 /**
- * 全栈测试执行器 v5.4 - 动态 Agent 识别版
- * 基于 v5.3，新增：爬完页面后自动提取 DOM 特征 → 动态匹配 Agent → 生成专项测试用例
+ * @module FullStackTest
+ * @description 全栈测试执行器 v5.4 - 动态 Agent 识别版
+ *
+ * 测试流程：
+ * 1. 解析命令行参数（输出目录、目标 URL、最大页面数、爬取深度）
+ * 2. 启动 Playwright 爬取页面，提取 DOM 特征
+ * 3. 使用 PageClassifier 动态识别页面类型，匹配 Agent 组合
+ * 4. 使用 PageAnalyzer 生成基础测试 + 专项测试用例
+ * 5. 执行测试，收集结果
+ * 6. 使用 HTMLReporter 生成可视化 HTML 报告
+ *
+ * 基于 v5.3 改进，新增动态 Agent 识别能力
  * 保留原有 8 个基础测试不变
+ *
+ * @version 5.4
  */
 
 const { chromium } = require('playwright');
