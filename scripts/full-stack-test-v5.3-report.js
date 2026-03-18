@@ -1,19 +1,26 @@
 /**
- * 全栈测试执行器 v5.3 - 完整报告版
- * 使用 V3 HTML Reporter，包含 Agent 角色、测试步骤、案例查看功能
+ * 全栈测试执行器 v5.4 - 动态 Agent 识别版
+ * 基于 v5.3，新增：爬完页面后自动提取 DOM 特征 → 动态匹配 Agent → 生成专项测试用例
+ * 保留原有 8 个基础测试不变
  */
 
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const HTMLReporter = require('../src/hybrid-test-arch-v3/html-reporter');
+const PageClassifier = require('../src/hybrid-test-arch-v3/page-classifier');
+const PageAnalyzer = require('../src/hybrid-test-arch-v3/analyzer');
 
 const TEST_DIR = process.argv[2];
 const BASE_URL = process.argv[3] || 'https://chagee.com/zh-cn';
 const MAX_PAGES = parseInt(process.argv[4]) || 50; // 默认 50 页
 const MAX_DEPTH = parseInt(process.argv[5]) || 3; // 爬取深度
 
-// 参与测试的 Agent 角色（使用 OpenTestAI Agents）
+// 初始化动态 Agent 识别器和分析器
+const classifier = new PageClassifier();
+const analyzer = new PageAnalyzer();
+
+// 静态 Agent 列表（保留，用于兼容）
 const TEST_AGENTS = [
     { id: 'mia', name: 'Mia', emoji: '👁️', role: 'UI/UX 与表单专家' },
     { id: 'sophia', name: 'Sophia', emoji: '♿', role: '无障碍访问专家' },
@@ -22,11 +29,12 @@ const TEST_AGENTS = [
 ];
 
 async function runTest() {
-    console.log('🧪 全栈测试执行器 v5.3 - 完整报告版');
+    console.log('🧪 全栈测试执行器 v5.4 - 动态 Agent 识别版');
     console.log(`📁 测试目录：${TEST_DIR}`);
     console.log(`🌐 基础 URL: ${BASE_URL}`);
     console.log(`📄 最大爬取：${MAX_PAGES} 页面`);
-    console.log(`🤖 测试角色：${TEST_AGENTS.map(a => a.name).join(' + ')}`);
+    console.log(`🤖 基础角色：${TEST_AGENTS.map(a => a.name).join(' + ')}`);
+    console.log(`🎯 动态角色：根据页面特征自动匹配 (${classifier.getAllAgents().length} 个可用)`);
     console.log('');
 
     const browser = await chromium.launch({
@@ -189,6 +197,7 @@ async function runTest() {
                     return document.querySelectorAll('a[href]').length;
                 });
 
+                // === 基础测试（保留原有 8 项）===
                 const tests = [
                     { name: 'HTTPS', check: '使用 HTTPS 协议', passed: url.startsWith('https://'), actual: url.startsWith('https://') ? '通过' : '失败', critical: true },
                     { name: '加载时间', check: '页面加载 < 10 秒', passed: loadTime < 10000, actual: `${loadTime}ms`, critical: false },
@@ -199,6 +208,91 @@ async function runTest() {
                     { name: '页面可访问', check: 'HTTP 状态正常', passed: httpStatus === 200, actual: `HTTP ${httpStatus}`, critical: true },
                     { name: '页面内容', check: '有 HTML 内容', passed: true, actual: '正常', critical: false }
                 ];
+
+                // === 新增：提取 DOM 特征 → 动态 Agent 匹配 → 专项测试 ===
+                let matchedAgentNames = [];
+                try {
+                    // 提取 DOM 特征（复用 crawler 的 analyzeFeatures 逻辑）
+                    const features = await page.evaluate(() => {
+                        const bodyText = document.body ? document.body.textContent : '';
+                        const html = document.documentElement.outerHTML || '';
+                        return {
+                            hasNavigation: document.querySelectorAll('nav, .nav, .menu, [role="navigation"]').length > 0,
+                            hasBanner: document.querySelectorAll('.banner, .carousel, .hero, .slider, .swiper').length > 0,
+                            isSPA: !!(window.__NEXT_DATA__ || window.__NUXT__ || document.querySelector('[id="app"], [id="root"]')),
+                            hasForms: document.querySelectorAll('form').length > 0,
+                            hasInputs: document.querySelectorAll('input, textarea, select').length > 0,
+                            hasLoginForm: document.querySelectorAll('input[type="password"]').length > 0,
+                            hasContactForm: !!(document.querySelector('form') && (bodyText.includes('联系') || bodyText.includes('Contact') || bodyText.includes('Message'))),
+                            hasProductCards: document.querySelectorAll('.product, .item, .goods, .card, [class*="product"]').length > 3,
+                            hasPrice: document.querySelectorAll('.price, .amount, [class*="price"]').length > 0,
+                            hasAddToCart: !!(document.querySelector('[class*="add-to-cart"], [class*="addtocart"], .buy-btn, .add-cart') || bodyText.match(/加入购物车|Add to Cart|Buy Now/i)),
+                            hasShoppingCart: !!(document.querySelector('[class*="cart"], .shopping-cart') || bodyText.match(/购物车|Shopping Cart|My Cart/i)),
+                            hasSearchBox: document.querySelectorAll('input[type="search"], [role="search"], .search-input, [class*="search"]').length > 0,
+                            hasArticle: document.querySelectorAll('article, .post, .blog, .article, [class*="article"]').length > 0,
+                            hasVideo: document.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]').length > 0,
+                            hasChatWidget: !!(document.querySelector('[class*="chat-widget"], [class*="chatbot"], [class*="intercom"], [class*="crisp"], [class*="tawk"]') || document.querySelector('iframe[src*="chat"]')),
+                            hasAvatar: document.querySelectorAll('.avatar, [class*="avatar"], .profile-pic, [class*="profile"]').length > 0,
+                            hasCookieBanner: !!(document.querySelector('[class*="cookie"], [class*="consent"], [class*="gdpr"], [id*="cookie"]') || bodyText.match(/cookie|Cookie 政策|接受 Cookie|Accept Cookies/i)),
+                            hasLanguageSwitcher: document.querySelectorAll('[class*="lang"], [class*="locale"], .language-selector').length > 0,
+                            hasCTA: document.querySelectorAll('.cta, [class*="call-to-action"], .hero-btn, .primary-btn').length > 0,
+                            hasDatePicker: document.querySelectorAll('input[type="date"], [class*="datepicker"], [class*="calendar"]').length > 0,
+                            linkCount: document.querySelectorAll('a[href]').length,
+                            imageCount: document.querySelectorAll('img').length,
+                            buttonCount: document.querySelectorAll('button, [role="button"]').length,
+                        };
+                    });
+
+                    // 构造 pageData 供 classifier 使用
+                    const pageContent = await page.textContent('body').catch(() => '');
+                    const pageHtml = await page.content().catch(() => '');
+                    const pageData = {
+                        url,
+                        title: pageInfo.title,
+                        loadTime,
+                        status: httpStatus,
+                        features,
+                        content: pageContent,
+                        html: pageHtml,
+                        consoleLogs: []
+                    };
+
+                    // 动态匹配 Agent
+                    const matchedAgents = classifier.classify(pageData);
+                    matchedAgentNames = matchedAgents.map(a => a.name);
+                    pageInfo.matchedAgents = matchedAgentNames;
+
+                    // 记录匹配到的 Agent（全局收集）
+                    for (const agent of matchedAgents) {
+                        if (!results.dynamicAgents) results.dynamicAgents = {};
+                        if (!results.dynamicAgents[agent.id]) {
+                            results.dynamicAgents[agent.id] = { id: agent.id, name: agent.name, pageCount: 0, testCount: 0 };
+                        }
+                        results.dynamicAgents[agent.id].pageCount++;
+                    }
+
+                    // 生成动态测试用例
+                    const dynamicTests = analyzer.generateTestCases(pageData, matchedAgents);
+
+                    // 合并到基础测试后面（去重：如果动态测试名称和基础测试重复则跳过）
+                    const baseTestNames = new Set(tests.map(t => t.name));
+                    for (const dt of dynamicTests) {
+                        if (!baseTestNames.has(dt.name)) {
+                            tests.push(dt);
+                            // 统计
+                            if (results.dynamicAgents[dt.agent]) {
+                                results.dynamicAgents[dt.agent].testCount++;
+                            }
+                        }
+                    }
+
+                    if (matchedAgentNames.length > 0) {
+                        console.log(`      🎯 匹配 Agent: ${matchedAgentNames.join(', ')}`);
+                    }
+                } catch (e) {
+                    // 动态识别失败不影响基础测试
+                    console.log(`      ⚠️ 动态识别: ${e.message}`);
+                }
                 
                 // 计算通过率：显示所有测试的通过情况
                 const passedTests = tests.filter(t => t.passed).length;
@@ -266,10 +360,15 @@ async function runTest() {
         issueStats.byType = Object.entries(typeCount).map(([type, count]) => ({ type, count }));
         
         const reporter = new HTMLReporter();
+
+        // 合并静态 + 动态 Agent 列表
+        const dynamicAgentIds = results.dynamicAgents ? Object.keys(results.dynamicAgents) : [];
+        const allAgentIds = [...new Set([...TEST_AGENTS.map(a => a.id), ...dynamicAgentIds])];
+
         const reportData = {
             timestamp: results.timestamp,
             baseUrl: BASE_URL,
-            agents: TEST_AGENTS.map(a => a.id),
+            agents: allAgentIds,
             summary: {
                 crawledPages: results.allPages.length,
                 successPages: results.successPages.length,
@@ -297,10 +396,16 @@ async function runTest() {
     console.log(`   成功页面：${results.successPages.length}`);
     console.log(`   失败页面：${results.failedPages.length}`);
     console.log(`   发现问题：${results.issues.length}`);
-    console.log(`\n🤖 参与测试的 Agent 角色:`);
-    TEST_AGENTS.forEach(agent => {
-        console.log(`   ${agent.emoji} ${agent.name} - ${agent.role}`);
-    });
+
+    // 打印动态 Agent 统计
+    if (results.dynamicAgents && Object.keys(results.dynamicAgents).length > 0) {
+        console.log(`\n🎯 动态识别的 Agent 角色 (${Object.keys(results.dynamicAgents).length} 个):`);
+        const sorted = Object.values(results.dynamicAgents).sort((a, b) => b.pageCount - a.pageCount);
+        for (const agent of sorted) {
+            console.log(`   🤖 ${agent.name} — 覆盖 ${agent.pageCount} 页, ${agent.testCount} 个测试`);
+        }
+    }
+
     console.log(`\n📁 目录：${TEST_DIR}`);
 }
 
