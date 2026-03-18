@@ -45,7 +45,7 @@ WebTestAI 是一个智能化的 Web 应用测试平台，核心思路是：**爬
 
 ### 在线示例报告
 
-- [📄 京东 JD.com 测试报告](https://raw.githubusercontent.com/joel-duqiong/WebTestAI/main/output/jd-report.html)（HTML，可本地打开）
+- [📄 京东 JD.com 测试报告](./example-report-jd.html)（下载后用浏览器打开）
 
 > 💡 **提示：** 点击"查看/收起"按钮可展开每页的测试用例详情和截图。所有图片 Base64 嵌入，报告可离线查看。
 
