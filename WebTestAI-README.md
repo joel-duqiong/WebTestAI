@@ -45,28 +45,34 @@ WebTestAI 是一个智能化的 Web 应用测试平台，结合了：
 
 ```
 webtestai/
-├── src/                       # 源代码
-│   ├── hybrid-test-arch/      # 混合测试架构 v1
-│   │   ├── core/              # 核心模块
-│   │   │   ├── crawler.js     # 页面爬取器
-│   │   │   ├── analyzer.js    # 测试分析器
-│   │   │   ├── llm-integration.js # LLM API 集成
-│   │   │   └── ...
-│   │   ├── prompts/           # AI 提示词模板 (7 个 Agent)
-│   │   ├── skills/            # OpenClaw 技能
-│   │   └── examples/          # 示例脚本
-│   │
-│   └── hybrid-test-arch-v3/   # 混合测试架构 v3 (最新版)
-│       ├── core/              # 核心模块 (7 个)
-│       ├── skills/            # OpenClaw 技能
-│       └── examples/          # 示例脚本
+├── src/                        # 源代码
+│   └── hybrid-test-arch-v3/    # 混合测试架构 v3 (最新版)
+│       ├── core/               # 核心模块 (7 个)
+│       │   ├── crawler.js          # 页面爬取器
+│       │   ├── analyzer.js         # 测试分析器
+│       │   ├── llm-integration.js  # LLM API 集成
+│       │   ├── deduplication.js    # 结果去重
+│       │   ├── html-reporter.js    # HTML 报告生成
+│       │   ├── pdf-exporter.js     # PDF 导出
+│       │   └── storage.js          # 数据存储
+│       ├── prompts/            # OpenTestAI 提示词 (7 个 Agent)
+│       │   ├── mia-ui-ux.md           # UI/UX 专家
+│       │   ├── sophia-accessibility.md # 无障碍专家
+│       │   ├── tariq-security.md      # 安全专家
+│       │   ├── leila-content.md       # 内容专家
+│       │   ├── viktor-performance.md  # 性能专家
+│       │   ├── zanele-mobile.md       # 移动端专家
+│       │   └── pete-chatbot.md        # 聊天机器人专家
+│       ├── skills/             # OpenClaw 技能
+│       └── examples/           # 示例脚本
 │
-├── scripts/                   # 测试脚本
-│   ├── full-stack-test*.js    # 全栈测试脚本 (8 个版本)
-│   └── test-runner.js         # 测试运行器
+├── scripts/                    # 测试脚本
+│   ├── full-stack-test-v5.2-fix.js   # 全栈测试 v5.2
+│   ├── full-stack-test-v5.3-report.js # 全栈测试 v5.3 (最新)
+│   └── test-runner.js          # 测试运行器
 │
-├── package.json               # 依赖配置
-└── README.md                  # 项目说明
+├── package.json                # 依赖配置
+└── README.md                   # 项目说明
 ```
 
 ---
