@@ -31,12 +31,33 @@ async function runTest() {
 
     const browser = await chromium.launch({
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-gpu',
+            '--disable-blink-features=AutomationControlled'
+        ]
     });
 
     const context = await browser.newContext({
         viewport: { width: 1280, height: 800 },
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        extraHTTPHeaders: {
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"'
+        },
+        javaScriptEnabled: true,
+        bypassCSP: true
+    });
+    
+    // 隐藏 webdriver 特征
+    await context.addInitScript(() => {
+        Object.defineProperty(navigator, 'webdriver', {
+            get: () => undefined
+        });
     });
 
     const results = {
@@ -98,6 +119,10 @@ async function runTest() {
             const url = uniqueUrls[i];
             console.log(`📄 [${i + 1}/${uniqueUrls.length}] ${url}`);
             
+            // 随机延迟，避免被反爬虫
+            const randomDelay = Math.floor(Math.random() * 2000) + 1000;
+            await new Promise(resolve => setTimeout(resolve, randomDelay));
+            
             const pageInfo = {
                 url,
                 timestamp: new Date().toISOString(),
@@ -108,12 +133,20 @@ async function runTest() {
 
             try {
                 const startTime = Date.now();
-                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
                 const loadTime = Date.now() - startTime;
 
                 pageInfo.loadTime = loadTime;
-                pageInfo.status = 200;
-                pageInfo.title = await page.title();
+                pageInfo.status = response ? response.status() : 200;
+                
+                // 检查是否是错误页面
+                const pageTitle = await page.title();
+                if (pageTitle === '405' || pageTitle === '404' || pageTitle === '500' || pageTitle.includes('Access Denied')) {
+                    pageInfo.title = `错误：${pageTitle}`;
+                    pageInfo.isErrorPage = true;
+                } else {
+                    pageInfo.title = pageTitle;
+                }
                 
                 // 保存截图并读取为 base64
                 const screenshotPath = path.join(TEST_DIR, `screenshot-${i}.png`);
