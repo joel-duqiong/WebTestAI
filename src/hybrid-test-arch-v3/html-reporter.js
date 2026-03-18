@@ -84,6 +84,8 @@ class HTMLReporter {
         .test-item.passed { background: rgba(63,185,80,0.1); border-left: 3px solid var(--success); }
         .test-item.failed { background: rgba(248,81,73,0.1); border-left: 3px solid var(--error); }
         .test-item.warning { background: rgba(210,153,34,0.1); border-left: 3px solid var(--warning); }
+        .issue-card { transition: transform 0.2s, box-shadow 0.2s; }
+        .issue-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
         .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
         .stat-card .label { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
@@ -166,29 +168,6 @@ class HTMLReporter {
         </div>
         ` : ''}
         
-        ${results.issueStats ? `
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="label">严重 (P8-10)</div>
-                <div class="value" style="color: var(--error)">${results.issueStats.byPriority.critical}</div>
-            </div>
-            <div class="stat-card">
-                <div class="label">中等 (P4-7)</div>
-                <div class="value" style="color: var(--warning)">${results.issueStats.byPriority.medium}</div>
-            </div>
-            <div class="stat-card">
-                <div class="label">轻微 (P1-3)</div>
-                <div class="value" style="color: var(--success)">${results.issueStats.byPriority.low}</div>
-            </div>
-            ${results.issueStats.byType.length > 0 ? `
-            <div class="stat-card">
-                <div class="label">问题类型</div>
-                <div class="value" style="font-size: 16px">${results.issueStats.byType.map(t => `${t.type}(${t.count})`).join(', ')}</div>
-            </div>
-            ` : ''}
-        </div>
-        ` : ''}
-        
         <div class="section">
             <h2>📄 页面测试结果 (${results.pages.length})</h2>
             <table>
@@ -237,16 +216,46 @@ class HTMLReporter {
         ${results.issues && results.issues.length > 0 ? `
         <div class="section">
             <h2>🐛 发现的问题 (${results.issues.length})</h2>
-            ${results.issues.map((issue, i) => `
-            <div class="issue-card" style="background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--error); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                <h4 style="margin-bottom: 12px;">${i + 1}. ${issue.bug_title}</h4>
-                <div style="margin-bottom: 8px;"><strong>页面:</strong> <code style="background: var(--bg); padding: 2px 6px; border-radius: 4px;">${issue.page}</code></div>
-                <div style="margin-bottom: 8px;"><strong>类型:</strong> ${issue.bug_type.join(', ')}</div>
-                <div style="margin-bottom: 8px;"><strong>优先级:</strong> ${issue.bug_priority}/10</div>
-                <div style="margin-bottom: 8px;"><strong>置信度:</strong> ${issue.bug_confidence}/10</div>
-                <div style="margin-bottom: 8px;"><strong>建议:</strong> ${issue.suggested_fix}</div>
-            </div>
-            `).join('')}
+            ${results.issues.map((issue, i) => {
+                const priorityColor = issue.bug_priority >= 8 ? 'var(--error)' : issue.bug_priority >= 4 ? 'var(--warning)' : 'var(--success)';
+                const priorityLabel = issue.bug_priority >= 8 ? 'P8' : issue.bug_priority >= 4 ? 'P4' : 'P1';
+                return `
+                <div class="issue-card" style="background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                        <h3 style="font-size: 16px; margin: 0;">${issue.bug_title}</h3>
+                        <div style="display: flex; gap: 8px;">
+                            <span style="background: ${priorityColor}20; color: ${priorityColor}; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">${priorityLabel}</span>
+                            <span style="background: var(--accent)20; color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 12px;">C${issue.bug_confidence}</span>
+                            <span style="background: rgba(139,92,246,0.2); color: #8b5cf6; padding: 4px 12px; border-radius: 20px; font-size: 12px;">${issue.bug_type.join(' / ')}</span>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 16px;">
+                        <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">为什么是问题</h4>
+                        <p style="color: var(--text); line-height: 1.6;">${issue.bug_reasoning_why_a_bug || '需要进一步分析'}</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 16px;">
+                        <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">修复建议</h4>
+                        <p style="color: var(--text); line-height: 1.6;"><strong style="color: var(--success);">✓</strong> ${issue.suggested_fix || '需要进一步分析'}</p>
+                    </div>
+                    
+                    ${issue.reproduction_steps ? `
+                    <div style="margin-bottom: 16px;">
+                        <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">复现步骤</h4>
+                        <div style="background: var(--bg); padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px; white-space: pre-wrap;">${issue.reproduction_steps}</div>
+                    </div>
+                    ` : ''}
+                    
+                    <div>
+                        <h4 style="color: var(--muted); font-size: 13px; margin-bottom: 8px;">给开发/AI 的修复提示词</h4>
+                        <div style="background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.3); padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px; color: var(--accent);">
+                            ${issue.ai_prompt || issue.suggested_fix || '需要进一步分析'}
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('')}
         </div>
         ` : ''}
         
