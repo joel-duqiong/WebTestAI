@@ -260,6 +260,21 @@ async function createSession(options = {}) {
 
                 const testEndTime = new Date();  // 记录测试结束时间
 
+                // 从文件重新加载页面数据（包含 screenshot）
+                const pagesDir = path.join(storage.baseDir, sessionId, 'pages');
+                const reportPages = [];
+                if (fs.existsSync(pagesDir)) {
+                    const files = fs.readdirSync(pagesDir).filter(f => f.endsWith('.json'));
+                    for (const file of files) {
+                        const pageData = JSON.parse(fs.readFileSync(path.join(pagesDir, file), 'utf8'));
+                        reportPages.push({
+                            ...pageData,
+                            html: undefined,
+                            content: undefined
+                        });
+                    }
+                }
+
                 const results = {
                     timestamp: session.timestamp,
                     baseUrl: session.baseUrl,
@@ -270,11 +285,7 @@ async function createSession(options = {}) {
                         totalIssues: dedupedIssues.length,
                         totalAgents: allAgents.length
                     },
-                    pages: session.pages.map(p => ({
-                        ...p,
-                        html: undefined,  // 移除完整 HTML
-                        content: undefined  // 移除 content（避免破坏报告）
-                    })),
+                    pages: reportPages,
                     issues: dedupedIssues,
                     agents: allAgents,
                     issueStats
